@@ -468,7 +468,7 @@
                     this.clientForm = { id: null, name: '', phone: '', locations: ['zarya'] };
                     this.subForm = { type: 'zarya', date: this.selectedDate, method:'', received:'' };this.paymentDraft=null;this.paymentToken=null;
                 },
-                canManageClients(){return false},
+                canManageClients() { return this.currentUser?.uid === FitPPWorkspace.ownerUid && this.canEdit(); },
                 canEdit() { return !!workspace.operationsWritable && this.dataReady && !this.loading && !this.saving; },
                 canRead() {
                     return this.dataReady && !this.loading && !this.saving;
@@ -512,7 +512,7 @@
                 },
                 visibleClients() { return this.clients.filter(c => !!c.archivedAt === (this.activeTab === 'archive')); },
                 async archiveClient(client) {
-                    if (!this.canEdit()) return;
+                    if (!client || !this.canManageClients()) return;
                     const token = store.token();
                     const restoring = !!client.archivedAt;
                     if (!confirm(restoring ? 'Восстановить клиента в активном списке?' : 'Архивировать клиента? Вся история и финансы сохранятся. Новые записи станут недоступны.')) return;
@@ -524,7 +524,7 @@
                 deletionToken: null,
                 async removeClient(client) {
                     this.deletionError = ''; this.deletionMessage = '';
-                    if (!client || !this.canEdit()) {
+                    if (!client || !this.canManageClients()) {
                         this.deletionError = 'Удаление недоступно. Дождитесь загрузки и включите запись.'; return;
                     }
                     try { FitPPStore.deletionPlan(this.sessionDataWithFinances(), client.id); }
@@ -541,7 +541,7 @@
                     const form = this.deletionForm;
                     if (!form || this.saving) return;
                     this.deletionError = '';
-                    if (!this.canEdit()) { this.deletionError = 'Удаление недоступно. Обновите данные и откройте форму заново.'; return; }
+                    if (!this.canManageClients()) { this.deletionError = 'Удаление недоступно. Обновите данные и откройте форму заново.'; return; }
                     if (form.name !== form.expectedName || form.phrase !== 'УДАЛИТЬ НАВСЕГДА') {
                         this.deletionError = 'Введите точное имя клиента и фразу УДАЛИТЬ НАВСЕГДА.'; return;
                     }
