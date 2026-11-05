@@ -1,0 +1,1 @@
+/* Local test intentionally does not install a Service Worker or offline cache. */

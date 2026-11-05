@@ -1,0 +1,1 @@
+(function(root){const p={"mode":"cloud","ownerUid":"qWX93IRLn2Ww22KoevmtoI3ffXF2","firebase":{"projectId":"fitpp-personal","apiKey":"AIzaSyAfXm1Zd6FugHiNd5Ar_Sy_aKEdRaJj_es","authDomain":"fitpp-personal.firebaseapp.com","appId":"1:416886328417:web:cb1f378cd7106931d56e20"}};if(typeof module==='object'&&module.exports)module.exports=p;else root.FitPPProfile=p})(globalThis);
