@@ -32,10 +32,33 @@ check();FitPPEnvironment.assertProject(W.projectId,currentUser.uid);
 if(navigator.onLine===false)throw Error('Нет сети. Расход не отправлен.');const epoch=generation,owner=currentUser.uid,session=()=>{check();if(epoch!==generation||currentUser.uid!==owner)throw Error('SESSION_CHANGED');return owner};const {firestore}=await ready;session();return FitPPExpenses.execute({db:firestore,uid:owner,expected,op,session});
 }
 async function commitAction(request){check();FitPPEnvironment.assertProject(W.projectId,currentUser.uid);if(navigator.onLine===false)throw Error('Нет сети. Действие не отправлено.');const epoch=generation,owner=currentUser.uid,session=()=>{check();if(epoch!==generation||currentUser.uid!==owner)throw Error('SESSION_CHANGED');return owner};const {firestore}=await ready;session();const value=await FitPPOperations.execute({db:firestore,uid:owner,...request,session,confirm:FitPPExpenses.confirmedRead});session();attendanceRevision=value.attendanceRevision||0;if(['schedulePeriod'].includes(request.action.type)){const history=(await read('trainers/'+owner)).data();session();window.dispatchEvent(new CustomEvent('fitpp-groups-confirmed',{detail:{ownerUid:owner,generation:epoch,history}}))}return value;}
-function watchHistory(onValue,onError){check();const epoch=generation,owner=currentUser.uid;let stopped=false,unsubscribe=()=>{};
-ready.then(({firestore})=>{if(stopped||epoch!==generation)return;unsubscribe=firestore.doc('trainers/'+owner).onSnapshot({includeMetadataChanges:true},snap=>{if(stopped||epoch!==generation||currentUser?.uid!==owner||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;try{check();if(!snap.exists)throw Error('Документ групп отсутствует');FitPPGroupPeriods.validate(snap.data().groupScheduleV1,owner);onValue(snap.data())}catch(e){onError(e)}},e=>{if(!stopped&&epoch===generation)onError(e)})}).catch(e=>{if(!stopped&&epoch===generation)onError(e)});
-return()=>{stopped=true;unsubscribe()};
+function watchDocument(path,parse,onValue,onError){
+check();const epoch=generation;let stopped=false,unsubscribe=()=>{};
+const active=()=>!stopped&&epoch===generation;
+const fail=e=>{if(active())onError(e)};
+ready.then(({firestore})=>{
+if(!active())return;
+unsubscribe=firestore.doc(path).onSnapshot({includeMetadataChanges:true},snap=>{
+if(!active()||snap.metadata.fromCache||snap.metadata.hasPendingWrites)return;
+try{onValue(parse(snap))}catch(e){fail(e)}
+},fail);
+}).catch(fail);
+return()=>{if(stopped)return;stopped=true;unsubscribe()};
 }
+function watchHistory(onValue,onError){
+const owner=currentUser?.uid;
+return watchDocument('trainers/'+owner,snap=>{
+if(!snap.exists)throw Error('Документ групп отсутствует');
+const data=snap.data();FitPPGroupPeriods.validate(data.groupScheduleV1,owner);return data;
+},onValue,onError);
+}
+function parseBookings(snap){
+if(!snap.exists)throw Error('Документ отсутствует: '+W.bookingPath);
+const data=snap.data();
+if(data.ownerUid!==W.ownerUid||data.datasetId!==W.datasetId)throw Error('BOOKINGS_METADATA_REJECTED');
+return {...data,versions:data.versions||{}};
+}
+function watchBookings(onValue,onError){return watchDocument(W.bookingPath,parseBookings,onValue,onError)}
 async function readOperation(id){
 check();if(!/^[a-zA-Z0-9-]{1,100}$/.test(id))throw Error('OPERATION_ID_REQUIRED');
 const epoch=generation,{firestore}=await ready;
@@ -45,5 +68,5 @@ check();if(epoch!==generation||results.some(s=>s.metadata.fromCache||s.metadata.
 return results.find(s=>s.exists)?.data();
 }
 const db={doc(path){if(path!==W.path)throw Error('PATH_REJECTED');return ref},runTransaction:locked};
-return Object.freeze({local:false,emulator:FitPPEnvironment.emulator,testWorkspace:true,production:false,projectId:W.projectId,catalogEnabled:true,writesEnabled:true,financeStageReady:true,commitAction,readOperation,expensesWritable:true,operationsWritable:true,bookingsWritable:true,groupsWritable:true,saveExpense,saveGroup,watchHistory,auth,db,check,validate:W.validate,reference(){check();return ref},async readSalesMode(){check();return 'catalog'},async requireCatalog(){await ref.get()},authorizeWrite:locked,activateCatalog:locked,get attendanceRevision(){return attendanceRevision},confirmAttendance:locked,async readBookings(keys){const epoch=generation;const snap=await read('fitppWorkspaces/personal-v1/states/bookings');if(epoch!==generation)throw Error('SESSION_CHANGED');const data=snap.data();if(data.ownerUid!==W.ownerUid||data.datasetId!==W.datasetId)throw Error('BOOKINGS_METADATA_REJECTED');return {...data,versions:data.versions||{}}},async readHistory(){return (await read('trainers/'+W.ownerUid)).data()},async setBooking(key,desired,expectedVersion,operationId,workout){check();const epoch=generation,raw=(await ref.get()).data();if(epoch!==generation)throw Error('SESSION_CHANGED');await commitAction({action:{type:'booking',key,desired,expectedVersion,operationId,...(workout?{workout}:{})},operationDay:FitPPOperations.today(),expectedFingerprint:FitPPStore.fingerprint(FitPPStore.read(raw))});return this.readBookings()}})
+return Object.freeze({local:false,emulator:FitPPEnvironment.emulator,testWorkspace:true,production:false,projectId:W.projectId,catalogEnabled:true,writesEnabled:true,financeStageReady:true,commitAction,readOperation,expensesWritable:true,operationsWritable:true,bookingsWritable:true,groupsWritable:true,saveExpense,saveGroup,watchHistory,watchBookings,auth,db,check,validate:W.validate,reference(){check();return ref},async readSalesMode(){check();return 'catalog'},async requireCatalog(){await ref.get()},authorizeWrite:locked,activateCatalog:locked,get attendanceRevision(){return attendanceRevision},confirmAttendance:locked,async readBookings(){const epoch=generation;const snap=await read(W.bookingPath);if(epoch!==generation)throw Error('SESSION_CHANGED');return parseBookings(snap)},async readHistory(){return (await read('trainers/'+W.ownerUid)).data()},async setBooking(key,desired,expectedVersion,operationId,workout){check();const epoch=generation,raw=(await ref.get()).data();if(epoch!==generation)throw Error('SESSION_CHANGED');await commitAction({action:{type:'booking',key,desired,expectedVersion,operationId,...(workout?{workout}:{})},operationDay:FitPPOperations.today(),expectedFingerprint:FitPPStore.fingerprint(FitPPStore.read(raw))});return this.readBookings()}})
 }globalThis.FitPPCloud=Object.freeze({start})})();
