@@ -71,13 +71,40 @@ if(action.mode==='move'&&w&&action.date!==w.date)need(!booked(w.date,w.location)
 if(action.mode==='add'&&Object.values(schedule.workouts).some(w=>!w.cancelled&&w.date===action.date&&w.location===action.location))need(!booked(action.date,action.location),'На эту дату и локацию уже есть занятие с записями. Второе занятие сделает записи неоднозначными.');
 }
 if(action.type==='booking'){
-const parts=JSON.parse(action.key);need(Array.isArray(parts)&&parts.length===3&&JSON.stringify(parts)===action.key&&ENV.validClientId(parts[0])&&typeof action.desired==='boolean'&&['zarya','pole','online'].includes(parts[2]),'BOOKING_ACTION_REJECTED');E.dayNumber(parts[1]);
-const c=raw.clients.find(c=>c.id===parts[0]);need(c&&!c.archivedAt,'Клиент недоступен');const entries={...bookings.entries},versions={...(bookings.versions||{})},version=versions[action.key]||0;
+const parts=JSON.parse(action.key);
+need(Array.isArray(parts)&&JSON.stringify(parts)===action.key&&ENV.validClientId(parts[0])&&typeof action.desired==='boolean','BOOKING_ACTION_REJECTED');
+const [clientId,scope,location]=parts, target=action.workout;
+// Journal keys name a workout; older booking keys name a date and location.
+const exact=parts.length===2;
+need(exact ? target&&typeof scope==='string'&&scope===target.id : parts.length===3&&['zarya','pole','online'].includes(location),'BOOKING_ACTION_REJECTED');
+if(!exact)E.dayNumber(scope);
+const c=raw.clients.find(c=>(target?String(c.id):c.id)===clientId);
+need((target&&!action.desired)||c&&!c.archivedAt,'Клиент недоступен');
+const entries={...bookings.entries},versions={...(bookings.versions||{})},version=versions[action.key]||0;
 need(version===action.expectedVersion,'UI_REVISION_CONFLICT');
 if((entries[action.key]===true)===action.desired)return {revision:raw._fitppRevision,duplicate:true};
-const merged=G.merge(E.read(raw),trainer.groupScheduleV1,uid);if(action.desired)need(E.workoutsOn(merged,parts[2],parts[1]).some(w=>!w.cancelled),'WORKOUT_UNAVAILABLE');
-if(action.desired)entries[action.key]=true;else delete entries[action.key];need(Object.keys(entries).length<=500,'Достигнут предел 500 записей');versions[action.key]=version+1;
-candidate=E.bookingFreeze(E.read(raw),action.key,action.desired,entries)||E.read(raw);bookingPatch={entries,versions,revision:(bookings.revision||0)+1};
+const current=E.read(raw);
+if(action.desired||target&&!exact){
+  const merged=G.merge(current,trainer.groupScheduleV1,uid);
+  if(target){
+    const w=Object.hasOwn(merged.workouts,target.id)&&merged.workouts[target.id];
+    need(w&&w.date===target.date&&w.location===target.location,'WORKOUT_UNAVAILABLE');
+    const sameDay=Object.values(merged.workouts).filter(item=>item.location===w.location&&item.date===w.date);
+    const active=sameDay.filter(item=>!item.cancelled);
+    if(action.desired){
+      need(exact&&!w.cancelled&&c.locations?.includes(w.location),'WORKOUT_UNAVAILABLE');
+      if(active.length===1&&entries[JSON.stringify([clientId,w.date,w.location])]===true)return {revision:raw._fitppRevision,duplicate:true};
+    }else{
+      const matching=active.length?active:sameDay;
+      need(scope===w.date&&location===w.location&&matching.length===1&&matching[0].id===w.id,'WORKOUT_UNAVAILABLE');
+    }
+  }else need(E.workoutsOn(merged,location,scope).some(w=>!w.cancelled),'WORKOUT_UNAVAILABLE');
+}
+if(action.desired)entries[action.key]=true;else delete entries[action.key];
+need(Object.keys(entries).length<=500,'Достигнут предел 500 записей');versions[action.key]=version+1;
+// The journal leaves subscription and attendance data untouched.
+candidate=target?current:E.bookingFreeze(current,action.key,action.desired,entries)||current;
+bookingPatch={entries,versions,revision:(bookings.revision||0)+1};
 }else if(action.type==='schedulePeriod'){throw Error('Используйте сохранение периода в разделе Группы');
 const g=groupFor(trainer,action.group);need(['zarya','pole','online'].includes(g.location),'Для этой группы не задана совместимая учётная локация');const original=G.validate(trainer.groupScheduleV1,uid);need(action.start>=operationDay,'Период не может начинаться в прошлом');const known=[...Object.values(raw.workouts||{}).map(w=>({...w,source:'main'})),...Object.values(trainer.workouts||{}).filter(w=>!raw.workouts?.[w.id]).map(w=>({...w,source:'trainers'}))];let count=0;const next=G.addPeriod(original,action,known,()=>action.operationId+'-'+(++count));
 const added=next.workouts.filter(w=>!original.workouts.some(o=>o.id===w.id));candidate=E.read(copy(raw));for(const w of added){w.id=w.location+'_extra_'+w.id;w.extra=true;for(const o of Object.values(candidate.workouts)){if(o.cancelled)continue;const distance=Math.abs(Date.parse(o.date+'T'+o.time+':00Z')-Date.parse(w.date+'T'+w.time+':00Z'));need(distance>=75*60000||distance===0&&((o.location==='online')!==(w.location==='online')),'Занятия пересекаются или нет перерыва 15 минут')}candidate.workouts[w.id]=copy(w)}next.revision++;G.validate(next,uid);patch={groupScheduleV1:next};E.read(candidate);

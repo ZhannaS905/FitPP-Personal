@@ -42,4 +42,23 @@ async function toggle(app,w,id){
       : 'Результат действия требует проверки: '+error.message;
   }
 }
-globalThis.FitPPBookings=Object.freeze({refresh,toggle});})();
+function workoutKey(workoutId,clientId){
+  return JSON.stringify([clientId,workoutId]);
+}
+async function saveWorkout(w,workout,key,desired,expectedVersion){
+  const epoch=w.auth.sessionGeneration;
+  const publish=data=>{
+    if(epoch!==w.auth.sessionGeneration)throw Error('SESSION_CHANGED');
+    window.dispatchEvent(new CustomEvent('fitpp-bookings-confirmed',{detail:{epoch,data}}));
+  };
+  try{
+    const {id,date,location}=workout;
+    publish(await w.setBooking(key,desired,expectedVersion,crypto.randomUUID(),{id,date,location}));
+  }catch(error){
+    if(epoch===w.auth.sessionGeneration){
+      try{publish(await w.readBookings([]));}catch{}
+    }
+    throw error;
+  }
+}
+globalThis.FitPPBookings=Object.freeze({refresh,toggle,workoutKey,saveWorkout});})();

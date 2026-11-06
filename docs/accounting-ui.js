@@ -13,8 +13,22 @@ async function extend(cid,sid){const {c,s,index}=subscription(cid,sid),remaining
 async function home(cid,sid){const {c,s}=subscription(cid,sid),h=await FitPPApplication.workspace.readHistory(),groups=(h.groupScheduleV1?.groups||[]).filter(g=>FitPPStore.subscriptionTerms(s).locations.includes(g.location));editor('Основная группа абонемента',`<p>${esc(c.name)}. Выберите явно — история автоматически не сопоставляется.</p><label>Группа<select name="group" required><option value="">Выберите группу</option>${groups.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}</select></label>`,f=>send({type:'assignHomeGroup',clientId:cid,subscriptionId:sid,groupId:f.get('group'),expectedSubscription:FitPPStore.fingerprint(s)}))}
 function periodEditor(group,groups){const g=groups.find(g=>g.id===group);editor('Новый период · '+g.name,`<label>Начало<input name="start" type="date" aria-label="Начало периода" required></label><label>Конец<input name="end" type="date" aria-label="Конец периода" required></label>${['Вс','Пн','Вт','Ср','Чт','Пт','Сб'].map((d,i)=>`<div class="slot"><label><input type="checkbox" name="days" value="${i}" ${g.slots.some(s=>s.day===i)?'checked':''}>${d}</label><input type="time" aria-label="Время ${d}" name="time${i}" value="${g.slots.find(s=>s.day===i)?.time||''}"></div>`).join('')}`,f=>send({type:'schedulePeriod',group,start:f.get('start'),end:f.get('end'),slots:f.getAll('days').map(d=>({day:Number(d),time:f.get('time'+d)}))}))}
 async function workoutById(wid){const a=app(),workspace=FitPPApplication.workspace;if(a.workouts[wid])return a.workouts[wid];const owner=workspace.auth.currentUser?.uid,epoch=workspace.auth.sessionGeneration,h=await workspace.readHistory();if(owner!==workspace.auth.currentUser?.uid||epoch!==workspace.auth.sessionGeneration)throw Error('Сессия изменилась');return FitPPGroupPeriods.merge({workouts:a.workouts},h.groupScheduleV1,owner).workouts[wid]}
-async function addPerson(wid){const w=await workoutById(wid);if(!w)return;editor('Клиент на занятии',`<label>Клиент<select name="client" required><option value="">Выберите клиента</option>${app().clients.filter(c=>!c.archivedAt&&(c.locations||[]).includes(w.location)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><p>Выбор добавляет строку в журнал. Занятие спишется только после отметки.</p>`,f=>{window.dispatchEvent(new CustomEvent('fitpp-manual-row',{detail:{workoutId:wid,clientId:f.get('client')}}));return true},'Добавить в журнал')}
-async function mark(wid,cid,status){const a=app(),w=await workoutById(wid),c=a.clients.find(c=>c.id===cid);if(!w||!c)return;const current=a.visits[wid]?.[cid]||null,desired=current===status?null:status,op=a.visitOps[wid]?.[cid];const items=FitPPStore.availableSubscriptions(c,w.location,w.date,op?.subscriptionId);
+async function addPerson(wid){
+  const w=await workoutById(wid),workspace=FitPPApplication.workspace;
+  if(!w||w.cancelled)throw Error('Занятие недоступно для записи');
+  editor('Записать на занятие',`<label>Клиент<select name="client" required><option value="">Выберите клиента</option>${app().clients.filter(c=>!c.archivedAt&&(c.locations||[]).includes(w.location)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><p>Занятие спишется только после отметки посещения.</p>`,async f=>{
+    if(!app().canEdit())throw Error('Дождитесь загрузки данных');
+    const cid=f.get('client'),data=await workspace.readBookings([]),key=FitPPBookings.workoutKey(w.id,cid);
+    await FitPPBookings.saveWorkout(workspace,w,key,true,data.versions[key]??0);
+  },'Записать');
+}
+async function cancelBooking(wid,key,version,date,location){
+  editor('Отменить запись?','',async ()=>{
+    if(!app().canEdit())throw Error('Дождитесь загрузки данных');
+    await FitPPBookings.saveWorkout(FitPPApplication.workspace,{id:wid,date,location},key,false,Number(version));
+  },'Отменить запись');
+}
+async function mark(wid,cid,status){const a=app(),w=await workoutById(wid),c=a.clients.find(c=>String(c.id)===cid);if(!w||!c)return;cid=c.id;const current=a.visits[wid]?.[cid]||null,desired=current===status?null:status,op=a.visitOps[wid]?.[cid];const items=FitPPStore.availableSubscriptions(c,w.location,w.date,op?.subscriptionId);
 if(desired==='attended'&&!items.length){
   const price=a.pricingSettings.singlePrices[w.location]/100;
   const due=Math.max(0,price-FitPPStore.balance(c))+FitPPStore.debt(c);
@@ -85,5 +99,5 @@ const w=await workoutById(wid);if(!w)return;
 const data=await FitPPApplication.workspace.readBookings([]),a=app(),people=FitPPCalendar.entries(a,data,w).filter(c=>c.booked);
 editor('Записи на занятие',`<p>${esc(w.date)} · ${esc(w.time)}</p>${people.some(c=>c.ambiguousBooking)?'<p>На эту дату и локацию есть несколько занятий. Записи общие; отдельное занятие в них не указано.</p>':''}${people.map(c=>`<p>${esc(c.client?.name||'Клиент отсутствует в источнике')}</p>`).join('')||'<p>Записанных клиентов нет.</p>'}`,()=>true,'Закрыть');
 }
-document.getElementById('app').addEventListener('click',e=>{const b=e.target.closest('[data-account]');if(!b||b.disabled)return;const d=b.dataset;Promise.resolve(d.account==='bookings'?bookingList(d.workout):['add','move','cancel','resume'].includes(d.account)?workoutEditor(d.account,d.workout,d.date,d.location):d.account==='extend'?extend(d.client,d.sub):d.account==='home'?home(d.client,d.sub):d.account==='addPerson'?addPerson(d.workout):d.account==='mark'?mark(d.workout,d.client,d.status):null).catch(e=>{app().syncError=e.message})});
+document.getElementById('app').addEventListener('click',e=>{const b=e.target.closest('[data-account]');if(!b||b.disabled)return;const d=b.dataset;Promise.resolve(d.account==='bookings'?bookingList(d.workout):['add','move','cancel','resume'].includes(d.account)?workoutEditor(d.account,d.workout,d.date,d.location):d.account==='extend'?extend(d.client,d.sub):d.account==='home'?home(d.client,d.sub):d.account==='addPerson'?addPerson(d.workout):d.account==='cancelBooking'?cancelBooking(d.workout,d.key,d.version,d.date,d.location):d.account==='mark'?mark(d.workout,d.client,d.status):null).catch(e=>{app().syncError=e.message})});
 globalThis.FitPPAccountingUI=Object.freeze({markup,periodEditor,extend,canManage});})();

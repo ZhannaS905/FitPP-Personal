@@ -120,3 +120,18 @@
 #dialog .visit-options button { min-height:48px; background:#334155; color:#f8fafc; }
 #dialog .visit-options .visit-purchase { grid-column:1 / -1; background:#047857; }
 #dialog .visit-options button[aria-pressed="true"] { background:#475569; border-color:#cbd5e1; }
+
+#schedule-host .journal-booking {
+  display:block;
+  max-width:100%;
+  margin-top:4px;
+  color:#bae6fd;
+  font-size:12px;
+}
+#schedule-host button.journal-booking {
+  min-height:32px;
+  padding:3px 8px;
+  border:1px solid #38bdf8;
+  border-radius:8px;
+  background:#0c4a6e;
+}
