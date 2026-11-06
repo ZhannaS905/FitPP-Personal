@@ -10,7 +10,15 @@ function apply(raw,trainer,action,day){let next=E.read(copy(raw));const a=copy(a
 if(a.type==='client'){
 need(a.editingId!=null||next.clients.length<500,'Достигнут предел 500 клиентов');need(a.editingId!=null||ENV.validClientId(a.newId),'CLIENT_ID_INVALID');need(a.editingId!=null||typeof a.newId==='string'&&a.newId.length>0&&!next.clients.some(c=>c.id===a.newId),'CLIENT_ID_REUSED');next=E.reduce(next,a,day);
 }else if(a.type==='subscription'){
-const g=groupFor(trainer,a.homeGroupId);next=E.reduce(next,a,day);const client=next.clients.find(c=>c.id===a.clientId),sub=client.subscriptions.find(s=>s.saleOperationId===a.operationId);need(sub,'Нет подтверждённой продажи');need(coversGroup(sub,g),'Тариф не действует в выбранной группе');need(!sub.homeGroupId||sub.homeGroupId===g.id,'Основная группа продажи уже сохранена');sub.homeGroupId=g.id;
+const g=groupFor(trainer,a.homeGroupId);
+if(a.visit?.requireAttendance){
+  const {workoutId,date,location}=a.visit;
+  const w=next.workouts[workoutId]||G.merge(next,G.validate(trainer.groupScheduleV1,UID),UID).workouts[workoutId];
+  need(c&&w&&!w.cancelled&&w.date===date&&w.location===location&&date<=day,'Занятие изменилось. Обновите журнал');
+  need(!E.availableSubscriptions(c,location,date).length,'У клиента уже есть действующий абонемент. Обновите журнал');
+  if(!next.workouts[w.id])next.workouts[w.id]=copy(w);
+}
+next=E.reduce(next,a,day);const client=next.clients.find(c=>c.id===a.clientId),sub=client.subscriptions.find(s=>s.saleOperationId===a.operationId);need(sub,'Нет подтверждённой продажи');need(coversGroup(sub,g),'Тариф не действует в выбранной группе');need(!sub.homeGroupId||sub.homeGroupId===g.id,'Основная группа продажи уже сохранена');sub.homeGroupId=g.id;
 }else if(a.type==='attendance'){
 need(c&&!c.archivedAt,'Клиент недоступен');const w=next.workouts[a.workoutId]||G.merge(next,G.validate(trainer.groupScheduleV1,UID),UID).workouts[a.workoutId];if(w&&!next.workouts[w.id])next.workouts[w.id]=copy(w);need(w&&!w.cancelled&&w.date===a.date&&w.location===a.location,'Выберите сохранённое неотменённое занятие');need(a.date<=day,'Нельзя списать занятие за будущую тренировку');need(['attended','missed',null].includes(a.status),'Недопустимая отметка');const before=next.visits[w.id]?.[c.id]||null;
 if(before===a.status)return next;

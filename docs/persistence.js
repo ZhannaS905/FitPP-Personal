@@ -1024,6 +1024,8 @@
           throw fail('Тренировка изменилась или есть неоднозначные отметки. Покупка не сохранена; обновите журнал.');
         if(data.visits[w.id]?.[client.id]) throw fail('Отметка уже существует. Покупка не сохранена; обновите журнал.');
         const sub=client.subscriptions.find(s=>s.id===subId);
+        if(visit.requireAttendance && (w.date>today || !covers(sub,w.location,w.date)))
+          throw fail('Новый абонемент должен действовать на дату и локацию занятия. Покупка не сохранена.');
         if(covers(sub,w.location,w.date)) sessionAction(data,{...visit,subscriptionId:subId},today);
       }
 
@@ -1164,7 +1166,7 @@
         frozen = copy(action);
       const operationDay = clock();
       if(workspace?.commitAction && !frozen.operationId)frozen.operationId="op-"+id();
-      try { if(!workspace?.commitAction || !['schedulePeriod','assignHomeGroup','attendance','workout'].includes(frozen.type))reduce(base, frozen, operationDay); }
+      try { if(!workspace?.commitAction || !['schedulePeriod','assignHomeGroup','attendance','workout'].includes(frozen.type) && !(frozen.type==='subscription' && frozen.visit?.requireAttendance))reduce(base, frozen, operationDay); }
       catch(error) {publish({syncError:'Не сохранено. '+error.message,saveStatus:''});return false;}
       publish({ saving: true, syncError: "", saveStatus: "" });
       try {

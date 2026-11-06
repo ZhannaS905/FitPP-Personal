@@ -22,10 +22,9 @@
 
 
 <link rel="stylesheet" href="styles.css?v=b10f48ee4566a1cd">
-<link rel="stylesheet" href="unified.css?v=9cd2d2646137e63a"><script defer src="calendar-model.js?v=e436d32414f20c55"></script><script defer src="group-period-model.js?v=59d62f3544e01ab1"></script><script defer src="group-writer.js?v=8213c2938ad3f818"></script><script defer src="group-period-ui.js?v=f15ac6e99d6608d0"></script><script defer src="accounting-ui.js?v=2b4c8f099e89e783"></script><script defer src="live-journal.js?v=0674de9844a2a7b3"></script></head>
+<link rel="stylesheet" href="unified.css?v=128643ef22838b56"><script defer src="calendar-model.js?v=e436d32414f20c55"></script><script defer src="group-period-model.js?v=59d62f3544e01ab1"></script><script defer src="group-writer.js?v=8213c2938ad3f818"></script><script defer src="group-period-ui.js?v=f15ac6e99d6608d0"></script><script defer src="accounting-ui.js?v=0170ddbb9c2cfa50"></script><script defer src="live-journal.js?v=d91c70bbbebe79e1"></script></head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased" x-data="trainerApp()" x-init="init()">
 
-    <aside role="note" class="max-w-4xl mx-auto px-4 py-3 text-sm" style="background:#24334a;border-bottom:1px solid #6782a6"><strong>FitPP.</strong> <span x-text="'Группы, расходы и учёт сохраняются в Firebase.'"></span></aside>
     <svg xmlns="http://www.w3.org/2000/svg" class="icon-sprite" aria-hidden="true"><defs>
       <symbol id="icon-barbell" viewBox="0 0 24 24"><path d="M3 9v6m4-10v14m10-14v14m4-10v6M7 12h10"/></symbol>
       <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 10h16m-12 4h1m3 0h1m3 0h1m-9 3h1m3 0h1"/></symbol>
@@ -243,7 +242,6 @@
         <div class="detail-card space-y-3" x-show="detailTab === 'payments'">
           <h3 class="font-semibold" x-text="'Денежный баланс: ' + moneyBalance(detailClient) + ' ₽'"></h3>
           <button :disabled="!canEdit() || moneyBalance(detailClient) <= 0" @click="openRefund(detailClient)" class="border rounded-xl p-3">Вернуть деньги с баланса</button>
-          <p class="text-sm text-slate-400">Старые оплаты не получают способ автоматически. Их можно уточнить отдельно, в том числе за сентябрь. Если фактически получили другую сумму, сначала нужна сверка истории.</p>
           <template x-for="entry in paymentHistory(detailClient)" :key="entry.id"><div class="history-row"><span x-text="entry.date + ' · ' + ({sale:'Покупка',legacy:'Старая оплата',cancel:'Отмена → баланс',refund:'Возврат',visitCharge:'Посещение → баланс / долг',debtPayment:'Оплата долга',visitCancel:'Отмена посещения → баланс'})[entry.kind]"></span><span x-text="(entry.method ? ({cash:'Наличные',transfer:'Перевод'})[entry.method] : 'Без поступления') + ': ' + entry.received / 100 + ' ₽'"></span><small x-show="['visitCharge','debtPayment','visitCancel'].includes(entry.kind)" x-text="moneyEntryDetails(entry)"></small><small x-show="entry.kind === 'sale'" x-text="'Стоимость ' + entry.price/100 + ' ₽ · зачтено ' + entry.used/100 + ' ₽'"></small></div></template>
           <template x-for="row in oldPayments(detailClient)" :key="row.key"><div class="history-row"><span x-text="row.date + ' · ' + row.label + ' · ' + (row.price ?? 'Сумма неизвестна') + ' ₽ · Способ не указан'"></span><button :disabled="!canEdit() || row.price == null" @click="openLegacyPayment(detailClient,row)" class="border p-2 rounded">Уточнить оплату</button></div></template>
         </div>
@@ -364,6 +362,7 @@
         <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4" style="max-height:90dvh;overflow-y:auto">
             <h3 class="text-lg font-bold">Продажа абонемента</h3>
             <p class="text-xs text-slate-400" x-text="'Клиент: ' + (subClient ? subClient.name : '')"></p>
+            <p x-show="subVisit?.requireAttendance" class="text-sm text-slate-300" x-text="'Посещение ' + (subVisit?.date || '') + ' будет отмечено при оформлении.'"></p>
             <label class="block text-sm">Основная группа<select aria-label="Основная группа" x-model="subForm.homeGroupId" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2"><option value="">Выберите группу</option><template x-for="g in saleHomeGroups()" :key="g.id"><option :value="g.id" x-text="g.name"></option></template></select></label>
             <div>
                 <label class="text-xs text-slate-400 block mb-1">Шаблон абонемента</label>
@@ -379,8 +378,8 @@
             <p class="text-sm text-slate-400">Дата продажи — дата получения денег. Для истории выберите прошлую дату. Вносите покупки клиента по порядку дат. Недоплата не сохраняется.</p>
             <p x-show="syncError" role="alert" class="text-rose-300 text-sm" x-text="syncError"></p>
             <div class="flex justify-end space-x-3 pt-2">
-                <button :disabled="saving" @click="closeSaleDraft()" class="bg-slate-700 px-4 py-2 rounded-xl text-sm">Отмена</button>
-                <button :disabled="!canEdit() || !saleCanSubmit()" @click="saveSubscription()" class="bg-emerald-600 px-4 py-2 rounded-xl text-sm font-semibold">Оформить</button>
+                <button :disabled="saving || saleSubmitting" @click="closeSaleDraft()" class="bg-slate-700 px-4 py-2 rounded-xl text-sm">Отмена</button>
+                <button :disabled="saleSubmitting || !canEdit() || !saleCanSubmit()" @click="saveSubscription()" class="bg-emerald-600 px-4 py-2 rounded-xl text-sm font-semibold">Оформить</button>
             </div>
         </div>
     </div>
@@ -403,11 +402,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="expenses.js?v=ae2c3914484066a7"></script>
 <script src="group-period-model.js?v=59d62f3544e01ab1"></script>
-<script src="cloud.js?v=4663547d9adb1239"></script>
+<script src="cloud.js?v=b9e822ff991ce9e9"></script>
     <script src="backup.js?v=c548f8018bd97853"></script>
     <script src="write-safety.js?v=4e72c951f7bbd28a"></script>
-    <script src="persistence.js?v=cd86c3da11ebbc1a" integrity="sha256-zYbD2hHrvBrQqV0HtlPctL8l3llrVXuGogfgu0GLWJE="></script>
-    <script src="operations.js?v=b2b98f5e1b4b0c7c"></script>
+    <script src="persistence.js?v=1e298e23c59b4486" integrity="sha256-zYbD2hHrvBrQqV0HtlPctL8l3llrVXuGogfgu0GLWJE="></script>
+    <script src="operations.js?v=615c267408b13204"></script>
     <script src="recovery.js?v=454b3bae53a47714"></script><script src="constructor.js?v=674f160a95a1dcb3"></script><script src="sale-recovery.js?v=70d0b939f6eeb174"></script>
     <script src="bookings.js?v=c0c6b029e4b829e6"></script>
 
@@ -433,6 +432,7 @@
                 clientFormToken: null,
                 subFormToken: null,
                 subVisit: null,
+                saleSubmitting: false,
                 renewalClient: null,
                 subscriptionChoice: null,
                 bookingAuthGeneration: null,
@@ -943,7 +943,7 @@
                 oldPayments(c) { return c ? FitPPStore.legacyPayments(this.sessionDataWithFinances(),c) : []; },
                 moneyReport() { return FitPPStore.report(this.sessionDataWithFinances(),this.currentMonth); },
                 activeTemplates() { return this.pricingSettings ? Object.values(this.pricingSettings.templates).filter(t=>!t.archived) : []; },
-                saleTemplates() { if(!this.confirmedSalesMode)return [];return this.confirmedSalesMode==='catalog' ? this.activeTemplates() : [{id:'legacy-zarya',name:'Заря',priceKopecks:440000,sessions:8,durationDays:28,locations:['zarya','pole','online']},{id:'legacy-pole',name:'Поле чудес',priceKopecks:380000,sessions:8,durationDays:28,locations:['zarya','pole','online']}]; },
+                saleTemplates() { if(!this.confirmedSalesMode)return [];return this.confirmedSalesMode==='catalog' ? this.activeTemplates().filter(t=>!this.subVisit?.requireAttendance || t.locations.includes(this.subVisit.location)) : [{id:'legacy-zarya',name:'Заря',priceKopecks:440000,sessions:8,durationDays:28,locations:['zarya','pole','online']},{id:'legacy-pole',name:'Поле чудес',priceKopecks:380000,sessions:8,durationDays:28,locations:['zarya','pole','online']}]; },
                 selectedSaleTemplateAvailable() { return this.saleTemplates().some(t=>t.id===this.subForm.templateId); },
                 saleTemplateDescription() { const t=this.subForm.templateSnapshot;return t ? (t.priceKopecks/100)+' ₽ · '+t.sessions+' занятий · '+t.durationDays+' дней' : ''; },
                 subDue() { return Math.max(0,(this.subForm.templateSnapshot?.priceKopecks||0)/100-this.moneyBalance(this.subClient)); },
@@ -1077,8 +1077,9 @@
                         this.saveStatus='Сервер пока не подтвердил отправленную продажу. Повтор использует прежний ID.';return false;
                     }catch(error){this.syncError='Результат отправленной продажи не подтверждён. '+error.message;throw error;}
                 },
-                async closeSaleDraft() { try{if(this.saleOperationId)await FitPPSaleRecovery.close(this.saleOperationId);this.showSubModal=false;this.subVisit=null;this.subFormToken=null;}catch(error){this.syncError=error.message;} },
+                async closeSaleDraft() { if(this.saleSubmitting)return;try{if(this.saleOperationId)await FitPPSaleRecovery.close(this.saleOperationId);this.showSubModal=false;this.subVisit=null;this.subFormToken=null;}catch(error){this.syncError=error.message;} },
                 async openSubModal(client, visit = null) {
+                    if(this.saleSubmitting)return;
                     try{await this.confirmSalesMode();}catch{return;}
                     if(this.confirmedSalesMode==='catalog'){const id=client.id;if(!await store.load())return;client=this.clients.find(c=>c.id===id);if(!client)return;this.confirmedSalesMode='catalog';}
                     if(this.confirmedSalesMode==='legacy'){
@@ -1101,6 +1102,8 @@
                     }catch(error){this.syncError='Черновик продажи недоступен. '+error.message;}
                 },
                 async saveSubscription() {
+                    if(this.saleSubmitting)return;
+                    this.saleSubmitting=true;
                     try{
                     let mode;try{mode=await this.confirmSalesMode();}catch{return;}
                     if((mode==='legacy')!==!!this.subForm.legacy){this.subForm.requiresConfirmation=true;this.subForm.priceConfirmed=false;this.subForm.catalogChecked=false;this.syncError='Режим продаж изменился на другом устройстве. Закройте форму и заново подтвердите актуальный шаблон и цену. Продажа не отправлена.';return;}
@@ -1137,12 +1140,12 @@
                     if(!t || t.archived || t.revision!==this.subForm.expectedTemplateRevision || raw.pricingSettings.revision!==this.subForm.catalogRevision){this.subForm.requiresConfirmation=true;this.subForm.catalogChecked=false;this.subForm.priceConfirmed=false;this.persistSaleDraft();this.syncError='Шаблон изменён на другом устройстве. Выберите актуальный шаблон и проверьте цену.';return;}
                     const action={type:'subscription',homeGroupId:this.subForm.homeGroupId,visit,clientId:this.subClient.id,templateId:t.id,expectedTemplateRevision:t.revision,operationId:this.saleOperationId,date:this.subForm.date||this.selectedDate,method:this.subForm.method,received:this.parseAmount(this.subForm.received)};
                     await FitPPSaleRecovery.save({...draft,form:JSON.parse(JSON.stringify(this.subForm)),action,phase:'pending'});
-                    const saved = await store.run(action,store.token());
+                    const saved = await store.run(action,visit?.requireAttendance ? token : store.token());
                     if(saved){await FitPPSaleRecovery.confirm(this.saleOperationId);this.saleOperationId=null;}
                     if (saved && this.subFormToken === token) { this.showSubModal = false; this.subFormToken = null;this.subVisit=null;
                       if(visit && this.sessionData().visits[visit.workoutId]?.[visit.clientId]!=='attended') alert('Абонемент оформлен. Посещение не отмечено: абонемент не действует на дату тренировки.');
                     }
-                    }catch(error){this.syncError='Сохранение продажи не подтверждено. ID операции сохранён. '+error.message;}
+                    }catch(error){this.syncError='Сохранение продажи не подтверждено. ID операции сохранён. '+error.message;}finally{this.saleSubmitting=false;}
                 },
                 changeMonth(dir) {
                     if (this.saving || this.expenseBusy || this.expenseDraft || this.expenseDelete) return;

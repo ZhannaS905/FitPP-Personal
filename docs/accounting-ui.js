@@ -2,8 +2,8 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let busy=false;
 const app=()=>Alpine.$data(document.body),id=()=> 'op-'+crypto.randomUUID(),key=(c,s)=>c.id+'/'+s.id;
 function editor(title,html,submit,label='Сохранить в Firebase'){
-const dialog=document.querySelector('#dialog'),form=document.querySelector('#form');document.querySelector('#modal-title').textContent=title;document.querySelector('#fields').innerHTML=html;document.querySelector('#error').textContent='';const button=form.querySelector('[type=submit]'),close=document.querySelector('#close'),owner=FitPPApplication.workspace.auth.currentUser?.uid,epoch=FitPPApplication.workspace.auth.sessionGeneration;button.textContent=label;button.disabled=false;close.disabled=false;
-form.onsubmit=async e=>{e.preventDefault();if(busy)return;try{if(owner!==FitPPApplication.workspace.auth.currentUser?.uid||epoch!==FitPPApplication.workspace.auth.sessionGeneration)throw Error('Сессия изменилась');busy=true;button.disabled=true;close.disabled=true;document.querySelector('#error').textContent='';const result=await submit(new FormData(form));if(result!==false){dialog.close();await app().reloadData();window.dispatchEvent(new Event('fitpp-schedule-refresh'))}}catch(e){document.querySelector('#error').textContent='Не сохранено. '+(e.code?e.code+': ':'')+e.message}finally{busy=false;button.disabled=false;close.disabled=false}};close.onclick=()=>{if(!busy)dialog.close()};dialog.oncancel=e=>{if(busy)e.preventDefault()};dialog.showModal();
+const dialog=document.querySelector('#dialog'),form=document.querySelector('#form');document.querySelector('#modal-title').textContent=title;document.querySelector('#fields').innerHTML=html;document.querySelector('#error').textContent='';const button=form.querySelector('[type=submit]'),close=document.querySelector('#close'),owner=FitPPApplication.workspace.auth.currentUser?.uid,epoch=FitPPApplication.workspace.auth.sessionGeneration;button.textContent=label;button.hidden=false;button.disabled=false;close.disabled=false;
+form.onsubmit=async e=>{e.preventDefault();if(busy)return;try{if(owner!==FitPPApplication.workspace.auth.currentUser?.uid||epoch!==FitPPApplication.workspace.auth.sessionGeneration)throw Error('Сессия изменилась');busy=true;button.disabled=true;close.disabled=true;document.querySelector('#error').textContent='';const result=await submit(new FormData(form),e.submitter);if(result!==false){dialog.close();await app().reloadData();window.dispatchEvent(new Event('fitpp-schedule-refresh'))}}catch(e){document.querySelector('#error').textContent='Не сохранено. '+(e.code?e.code+': ':'')+e.message}finally{busy=false;button.disabled=false;close.disabled=false}};close.onclick=()=>{if(!busy)dialog.close()};dialog.oncancel=e=>{if(busy)e.preventDefault()};dialog.showModal();return form;
 }
 async function send(action){const a=app();if(!a.canEdit())throw Error('Дождитесь загрузки данных');const ok=await FitPPApplication.store.run({...action,operationId:action.operationId||id()});if(!ok)throw Error(a.syncError||'Сохранение не подтверждено');return true}
 function subscription(cid,sid){const c=app().clients.find(c=>c.id===cid),s=c?.subscriptions?.find(s=>s.id===sid);if(!s)throw Error('Абонемент не найден');return {c,s,index:c.subscriptions.indexOf(s)}}
@@ -15,7 +15,54 @@ function periodEditor(group,groups){const g=groups.find(g=>g.id===group);editor(
 async function workoutById(wid){const a=app(),workspace=FitPPApplication.workspace;if(a.workouts[wid])return a.workouts[wid];const owner=workspace.auth.currentUser?.uid,epoch=workspace.auth.sessionGeneration,h=await workspace.readHistory();if(owner!==workspace.auth.currentUser?.uid||epoch!==workspace.auth.sessionGeneration)throw Error('Сессия изменилась');return FitPPGroupPeriods.merge({workouts:a.workouts},h.groupScheduleV1,owner).workouts[wid]}
 async function addPerson(wid){const w=await workoutById(wid);if(!w)return;editor('Клиент на занятии',`<label>Клиент<select name="client" required><option value="">Выберите клиента</option>${app().clients.filter(c=>!c.archivedAt&&(c.locations||[]).includes(w.location)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><p>Выбор добавляет строку в журнал. Занятие спишется только после отметки.</p>`,f=>{window.dispatchEvent(new CustomEvent('fitpp-manual-row',{detail:{workoutId:wid,clientId:f.get('client')}}));return true},'Добавить в журнал')}
 async function mark(wid,cid,status){const a=app(),w=await workoutById(wid),c=a.clients.find(c=>c.id===cid);if(!w||!c)return;const current=a.visits[wid]?.[cid]||null,desired=current===status?null:status,op=a.visitOps[wid]?.[cid];const items=FitPPStore.availableSubscriptions(c,w.location,w.date,op?.subscriptionId);
-if(desired==='attended'&&!items.length){const price=a.pricingSettings.singlePrices[w.location]/100,due=Math.max(0,price-FitPPStore.balance(c))+FitPPStore.debt(c),operationId=id();editor('Был · посещение',`<p>${esc(c.name)} · занятие ${price} ₽. К оплате ${due} ₽ с учётом баланса и долга. Можно сохранить посещение сейчас, а оплату принять позже.</p><label>Как сохранить<select name="settlement"><option value="debt">Посещение с оплатой позже</option><option value="pay">Принять разовую оплату сейчас</option></select></label><label>Способ оплаты<select name="method"><option value="">Выберите способ</option><option value="cash">Наличные</option><option value="transfer">Перевод</option></select></label><label>Фактически получено, ₽<input name="received" type="number" min="0" step="0.01" value="${due}"></label>`,f=>send({type:'attendance',workoutId:wid,date:w.date,location:w.location,clientId:cid,status:'attended',singlePayment:f.get('settlement')==='pay',method:f.get('method'),received:Number(f.get('received')),paymentDate:FitPPOperations.today(),operationId}));return}
+if(desired==='attended'&&!items.length){
+  const price=a.pricingSettings.singlePrices[w.location]/100;
+  const due=Math.max(0,price-FitPPStore.balance(c))+FitPPStore.debt(c);
+  const operationId=id();
+  let settlement=null;
+  const form=editor('Был · посещение',`<p>${esc(c.name)} · занятие ${price} ₽</p>
+    <div class="visit-options">
+      <button type="button" name="purchase" class="visit-purchase" ${current?'disabled':''}>Купить абонемент</button>
+      <button type="button" data-settlement="pay" aria-pressed="false">Разовая оплата</button>
+      <button type="button" data-settlement="debt" aria-pressed="false">В долг</button>
+    </div>
+    ${current?'<p>Чтобы купить абонемент для этой тренировки, сначала снимите текущую отметку.</p>':''}
+    <p data-debt hidden>К оплате ${due} ₽ с учётом баланса и долга. Оплату можно принять позже.</p>
+    <fieldset data-payment hidden disabled>
+      <p>К оплате ${due} ₽ с учётом баланса и долга.</p>
+      <label>Способ оплаты<select name="method" required><option value="">Выберите способ</option><option value="cash">Наличные</option><option value="transfer">Перевод</option></select></label>
+      <label>Фактически получено, ₽<input name="received" type="number" min="0" step="0.01" value="${due}" required></label>
+    </fieldset>`,async (f,button)=>{
+      if(button?.name==='purchase'){
+        await a.openSubModal(c,{workoutId:wid,clientId:cid,date:w.date,location:w.location,requireAttendance:true});
+        if(a.showSubModal)form.closest('dialog').close();
+        else if(a.syncError)throw Error(a.syncError);
+        return false;
+      }
+      if(!settlement)return false;
+      const singlePayment=settlement==='pay';
+      return send({type:'attendance',workoutId:wid,date:w.date,location:w.location,clientId:cid,status:'attended',singlePayment,method:f.get('method'),received:Number(f.get('received')),paymentDate:FitPPOperations.today(),operationId});
+    },'Сохранить посещение');
+  const save=form.querySelector('[type=submit]');
+  const payment=form.querySelector('[data-payment]');
+  const debt=form.querySelector('[data-debt]');
+  const choices=form.querySelectorAll('[data-settlement]');
+  save.hidden=true;
+  const purchase=form.querySelector('[name="purchase"]');
+  purchase.onclick=()=>{
+    if(busy)return;
+    form.dispatchEvent(new SubmitEvent('submit',{cancelable:true,submitter:purchase}));
+  };
+  for(const button of choices)button.onclick=()=>{
+    if(busy)return;
+    settlement=button.dataset.settlement;
+    for(const choice of choices)choice.setAttribute('aria-pressed',choice===button);
+    payment.hidden=payment.disabled=settlement!=='pay';
+    debt.hidden=settlement!=='debt';
+    save.hidden=false;
+  };
+  return;
+}
 if(desired==='missed'&&!items.length){a.syncError='Для отметки Сгорело нужен действующий абонемент.';return}
 const action={type:'attendance',workoutId:wid,date:w.date,location:w.location,clientId:cid,status:desired,operationId:id()};
 if(current==='razov'&&!confirm('Отмена разового посещения вернёт стоимость на баланс клиента. Фактический возврат денег оформляется отдельно. Продолжить?'))return;

@@ -63,3 +63,27 @@
 #dialog .period-slot input[type=checkbox]{width:22px;height:22px;min-height:22px;margin:0;padding:0;flex:none;accent-color:#10b981}
 #dialog .period-slot input[type=time]{width:108px;min-width:0;height:44px;margin:0;padding:8px;font-size:16px;color-scheme:dark}
 #dialog .period-slot input:focus-visible{outline:2px solid #f8fafc;outline-offset:2px}
+
+#schedule-host .journal-panel .client-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  align-items:center;
+  gap:6px 10px;
+  padding:10px;
+}
+#schedule-host .client-row .client-name { grid-column:1; grid-row:1; min-height:44px; }
+#schedule-host .client-row .attendance-actions {
+  grid-column:2;
+  grid-row:1;
+  display:flex !important;
+  width:auto !important;
+}
+#schedule-host .client-row .attendance-actions button { min-width:44px; padding-inline:9px; }
+#schedule-host .client-row [data-status="missed"] { background:#7f1d1d; border-color:#f87171; color:#fff1f2; }
+#schedule-host .client-row [data-status="missed"][aria-pressed="true"] { background:#b91c1c; border-color:#fecaca; }
+#schedule-host .client-row small, #schedule-host .client-row .client-debt { grid-column:1 / -1; }
+#schedule-host .client-debt { color:#fda4af; }
+#dialog .visit-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-block:12px; }
+#dialog .visit-options button { min-height:48px; background:#334155; color:#f8fafc; }
+#dialog .visit-options .visit-purchase { grid-column:1 / -1; background:#047857; }
+#dialog .visit-options button[aria-pressed="true"] { background:#475569; border-color:#cbd5e1; }
