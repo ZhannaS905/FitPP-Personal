@@ -59,10 +59,40 @@ function paymentEntries(before,after,clientId){
   const ids=new Set(previous.map(e=>e.id));
   return current.filter(e=>!ids.has(e.id)&&['sale','cancel','refund','debtPayment','legacy'].includes(e.kind));
 }
+// Keep the existing receipt keys and preserve the original action signature for retries.
+function matchesSignature(receipt,signature){
+  if(receipt.signature===signature)return true;
+  try {
+    const {personalNotificationsV1,...request}=JSON.parse(receipt.signature);
+    return Array.isArray(personalNotificationsV1)&&stable(request)===signature;
+  }catch{return false}
+}
+function notificationEvents(before,after,action){
+  if(!['subscription','attendance'].includes(action.type)||!ENV.validClientId(String(action.clientId??'')))return [];
+  const client=after.clients.find(c=>c.id===action.clientId);
+  if(!client)return [];
+  const events=[];
+  if(action.type==='subscription'){
+    const sub=client.subscriptions?.find(s=>s.saleOperationId===action.operationId);
+    if(sub)events.push({kind:'purchase',subscriptionId:sub.id,sessions:sub.terms.sessions,
+      expires:sub.expires,remaining:sub.left});
+  }
+  const visit=action.type==='subscription'?action.visit:action;
+  const status=action.type==='subscription'?'attended':action.status;
+  if(!visit||!['attended','missed'].includes(status))return events;
+  const old=before.visitOps?.[visit.workoutId]?.[action.clientId];
+  const op=after.visitOps?.[visit.workoutId]?.[action.clientId];
+  if(!op?.operationId||old?.operationId===op.operationId||op.status!==status||
+     after.visits?.[visit.workoutId]?.[action.clientId]!==status)return events;
+  const sub=client.subscriptions?.find(s=>s.id===op.subscriptionId);
+  const details=sub?{subscriptionId:sub.id,remaining:sub.left}:op.moneyChargeId?{price:op.price}:null;
+  if(details)events.push({kind:status,workoutId:visit.workoutId,visitId:op.operationId,date:visit.date,...details});
+  return events;
+}
 async function execute({db,uid,expectedFingerprint,action,operationDay=today(),session=()=>uid,confirm}){
 guard(db,uid);need(action&&typeof action.type==='string','ACTION_REQUIRED');need(operationDay===today(),'Дата изменилась. Обновите данные');need(/^[a-zA-Z0-9-]{1,100}$/.test(action.operationId||''),'OPERATION_ID_REQUIRED');const signature=stable({action,operationDay}),ref=db.doc(MAIN),trainerRef=db.doc('trainers/'+uid),bookingRef=db.doc('fitppWorkspaces/personal-v1/states/bookings');
 const operationRefs=operationCollections.map(collection=>db.doc(operationPath(collection,action.operationId)));
-const transact=()=>db.runTransaction(async tx=>{need(session()===uid,'SESSION_CHANGED');const [m,t,b,operation,payment]=await Promise.all([ref,trainerRef,bookingRef,...operationRefs].map(r=>tx.get(r)));need(m.exists&&t.exists&&b.exists,'SOURCE_MISSING');const raw=m.data(),trainer=t.data(),bookings=b.data();metadata(raw,uid);need(bookings.ownerUid===uid&&bookings.datasetId==='personal-v1','BOOKINGS_METADATA');const prior=operation.data()||payment.data()||raw.mutationReceipts?.[action.operationId];if(prior){need(prior.signature===signature,'OPERATION_ID_REUSED');return {revision:raw._fitppRevision,duplicate:true}}
+const transact=()=>db.runTransaction(async tx=>{need(session()===uid,'SESSION_CHANGED');const [m,t,b,operation,payment]=await Promise.all([ref,trainerRef,bookingRef,...operationRefs].map(r=>tx.get(r)));need(m.exists&&t.exists&&b.exists,'SOURCE_MISSING');const raw=m.data(),trainer=t.data(),bookings=b.data();metadata(raw,uid);need(bookings.ownerUid===uid&&bookings.datasetId==='personal-v1','BOOKINGS_METADATA');const prior=operation.data()||payment.data()||raw.mutationReceipts?.[action.operationId];if(prior){need(matchesSignature(prior,signature),'OPERATION_ID_REUSED');return {revision:raw._fitppRevision,duplicate:true}}
 need(stable(E.read(raw))===expectedFingerprint,'Данные изменены. Обновите страницу перед повтором');let candidate,patch,bookingPatch;
 if(action.type==='workout'){
 const schedule=G.merge(E.read(raw),trainer.groupScheduleV1,uid),w=schedule.workouts[action.workoutId];
@@ -112,7 +142,9 @@ const added=next.workouts.filter(w=>!original.workouts.some(o=>o.id===w.id));can
 if(!bookingPatch&&stable(candidate)===stable(E.read(raw)))return {revision:raw._fitppRevision,duplicate:true};
 const entries=paymentEntries(raw,candidate,action.clientId);
 const index=entries.length?1:0,collection=operationCollections[index],revision=raw._fitppRevision+1;
-const receipt={signature,type:action.type,at:Date.now(),revision};
+const notifications=notificationEvents(raw,candidate,action);
+const receiptSignature=notifications.length?stable({action,operationDay,personalNotificationsV1:notifications}):signature;
+const receipt={signature:receiptSignature,type:action.type,at:Date.now(),revision};
 if(entries.length)Object.assign(receipt,{clientId:action.clientId,entries});
 const lastOperation={id:action.operationId,collection};
 need(session()===uid,'SESSION_CHANGED');
@@ -122,7 +154,7 @@ tx.update(ref,update);
 tx.set(operationRefs[index],receipt);
 if(patch)tx.update(trainerRef,patch);
 if(bookingPatch)tx.update(bookingRef,bookingPatch);
-return {revision,duplicate:false,index,trainerRevision:patch?.groupScheduleV1?.revision};
+return {revision,duplicate:false,index,receiptSignature,trainerRevision:patch?.groupScheduleV1?.revision};
 });
 let outcome;
 try{outcome=await transact()}catch(error){
@@ -133,7 +165,7 @@ try{outcome=await transact()}catch(error){
   need(session()===uid,'SESSION_CHANGED');
   const prior=receipts.find(s=>s.exists&&!s.metadata?.fromCache&&!s.metadata?.hasPendingWrites)?.data();
   if(!prior)throw error;
-  need(prior.signature===signature,'OPERATION_ID_REUSED');
+  need(matchesSignature(prior,signature),'OPERATION_ID_REUSED');
   outcome={revision:prior.revision,duplicate:true};
 }
 need(session()===uid,'SESSION_CHANGED');const verify=s=>s.exists&&!s.metadata?.fromCache&&!s.metadata?.hasPendingWrites&&(s.data()._fitppRevision||0)>=outcome.revision;
@@ -142,7 +174,7 @@ need(session()===uid,'SESSION_CHANGED');if(confirm){if(outcome.trainerRevision)a
   const receipt=await operationRefs[outcome.index].get({source:'server'});
   need(session()===uid,'SESSION_CHANGED');
   need(receipt.exists&&!receipt.metadata?.fromCache&&!receipt.metadata?.hasPendingWrites&&
-    receipt.data().signature===signature&&receipt.data().revision===outcome.revision,'Результат операции не подтверждён');
+    receipt.data().signature===outcome.receiptSignature&&receipt.data().revision===outcome.revision,'Результат операции не подтверждён');
 }return snap.data();
 }
 return Object.freeze({execute,apply,today,MAIN,UID,operationPath});});
