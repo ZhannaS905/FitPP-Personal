@@ -83,6 +83,7 @@
   margin-left:0;
 }
 #schedule-host small.journal-client-balance { display:block; color:#34d399; }
+#schedule-host .journal-client-identity .client-debt { display:block; color:#fda4af; }
 #schedule-host .journal-workout .attendance-actions {
   display:grid !important;
   grid-template-columns:repeat(2,minmax(0,1fr)) !important;
