@@ -64,25 +64,41 @@
 #dialog .period-slot input[type=time]{width:108px;min-width:0;height:44px;margin:0;padding:8px;font-size:16px;color-scheme:dark}
 #dialog .period-slot input:focus-visible{outline:2px solid #f8fafc;outline-offset:2px}
 
-#schedule-host .journal-panel .client-row {
+#schedule-host .journal-workout { padding:12px; }
+#schedule-host .journal-workout > .actions { margin-top:8px; }
+#schedule-host .journal-workout .client-row {
   display:grid;
   grid-template-columns:minmax(0,1fr) auto !important;
   align-items:center;
-  gap:6px 10px;
-  padding:10px;
+  gap:6px 10px !important;
+  padding:8px 10px !important;
+  margin-top:8px;
 }
-#schedule-host .client-row .client-name { grid-column:1; grid-row:1; min-height:44px; overflow-wrap:anywhere; }
-#schedule-host .client-row .attendance-actions {
-  grid-column:2;
-  grid-row:1;
-  display:flex !important;
+#schedule-host .journal-workout .client-row + .client-row { margin-top:6px; }
+#schedule-host .journal-client-identity { min-width:0; }
+#schedule-host .journal-workout .client-name { min-height:30px; overflow-wrap:anywhere; }
+#schedule-host .journal-workout .client-name::after {
+  content:"\2060\00a0›";
+  float:none;
+  margin-left:0;
+}
+#schedule-host small.journal-client-balance { display:block; color:#34d399; }
+#schedule-host .journal-workout .attendance-actions {
+  display:grid !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   width:auto !important;
 }
-#schedule-host .client-row .attendance-actions button { min-width:44px; padding-inline:9px; }
-#schedule-host .client-row [data-status="missed"] { background:#7f1d1d; border-color:#f87171; color:#fff1f2; }
-#schedule-host .client-row [data-status="missed"][aria-pressed="true"] { background:#b91c1c; border-color:#fecaca; }
-#schedule-host .client-row small, #schedule-host .client-row .client-debt { grid-column:1 / -1; }
-#schedule-host .client-debt { color:#fda4af; }
+#schedule-host .journal-workout .attendance-actions > button {
+  grid-area:auto;
+  min-width:0;
+  height:30px;
+  min-height:30px;
+  padding:0 6px !important;
+}
+#schedule-host .journal-workout [data-status="attended"] { background:#064e3b !important; border-color:#10b981; color:#d1fae5 !important; }
+#schedule-host .journal-workout [data-status="attended"][aria-pressed="true"] { background:#047857 !important; border-color:#6ee7b7; }
+#schedule-host .journal-workout [data-status="missed"] { background:#7f1d1d !important; border-color:#f87171; color:#fff1f2 !important; }
+#schedule-host .journal-workout [data-status="missed"][aria-pressed="true"] { background:#b91c1c !important; border-color:#fecaca; }
 #dialog #fields { overflow-wrap:anywhere; }
 #dialog .visit-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-block:12px; }
 #dialog .visit-options button { min-height:48px; background:#334155; color:#f8fafc; }
