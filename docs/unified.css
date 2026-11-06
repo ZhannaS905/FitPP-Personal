@@ -96,6 +96,21 @@
   min-height:30px;
   padding:0 6px !important;
 }
+@media (max-width:767px) {
+  #schedule-host .journal-workout .client-row {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    column-gap:0 !important;
+  }
+  #schedule-host .journal-client-identity {
+    padding-right:6px;
+    overflow-wrap:anywhere;
+  }
+  #schedule-host .journal-workout .attendance-actions > button {
+    height:32px;
+    min-height:32px;
+    padding:0 2px !important;
+  }
+}
 #schedule-host .journal-workout [data-status="attended"] { background:#064e3b !important; border-color:#10b981; color:#d1fae5 !important; }
 #schedule-host .journal-workout [data-status="attended"][aria-pressed="true"] { background:#047857 !important; border-color:#6ee7b7; }
 #schedule-host .journal-workout [data-status="missed"] { background:#7f1d1d !important; border-color:#f87171; color:#fff1f2 !important; }
