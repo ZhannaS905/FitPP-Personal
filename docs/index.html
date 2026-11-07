@@ -23,7 +23,7 @@
 
 
 <link rel="stylesheet" href="styles.css?v=b10f48ee4566a1cd">
-<link rel="stylesheet" href="unified.css?v=4b8da721c117722b"><script defer src="calendar-model.js?v=55a42093ce5c6768"></script><script defer src="group-period-model.js?v=59d62f3544e01ab1"></script><script defer src="group-writer.js?v=8213c2938ad3f818"></script><script defer src="group-period-ui.js?v=f15ac6e99d6608d0"></script><script defer src="accounting-ui.js?v=99c8ef363e1c251e"></script><script defer src="live-journal.js?v=4757113500cc6c26"></script></head>
+<link rel="stylesheet" href="unified.css?v=4b8da721c117722b"><script defer src="calendar-model.js?v=55a42093ce5c6768"></script><script defer src="group-period-model.js?v=59d62f3544e01ab1"></script><script defer src="group-writer.js?v=8213c2938ad3f818"></script><script defer src="group-period-ui.js?v=f15ac6e99d6608d0"></script><script defer src="accounting-ui.js?v=fd3a487977ac5789"></script><script defer src="live-journal.js?v=4757113500cc6c26"></script></head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased" x-data="trainerApp()" x-init="init()">
 
     <svg xmlns="http://www.w3.org/2000/svg" class="icon-sprite" aria-hidden="true"><defs>
@@ -374,7 +374,7 @@
                 <input type="date" x-model="subForm.date" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-sm text-white">
             </div>
             <p class="text-sm" x-text="'Баланс: ' + (subClient ? moneyBalance(subClient) : 0) + ' ₽ · К оплате: ' + subDue() + ' ₽'"></p>
-            <label class="block text-sm">Способ оплаты<select aria-label="Способ оплаты абонемента" x-model="subForm.method" class="w-full bg-slate-900 border rounded-xl p-2"><option value="">Выберите способ</option><option value="transfer">Перевод</option><option value="cash">Наличные</option></select></label>
+            <label class="block text-sm">Способ оплаты<select aria-label="Способ оплаты абонемента" x-model="subForm.method" class="w-full bg-slate-900 border rounded-xl p-2"><option value="transfer">Перевод</option><option value="cash">Наличные</option></select></label>
             <label class="block text-sm">Фактически получено, ₽<input aria-label="Получено за абонемент" type="number" min="0" step="0.01" inputmode="decimal" x-model="subForm.received" class="w-full bg-slate-900 border rounded-xl p-2"></label>
             <p class="text-sm text-slate-400">Дата продажи — дата получения денег. Для истории выберите прошлую дату. Вносите покупки клиента по порядку дат. Недоплата не сохраняется.</p>
             <p x-show="syncError" role="alert" class="text-rose-300 text-sm" x-text="syncError"></p>
@@ -467,7 +467,7 @@
                     this.authForm = { email: '', password: '' };
                     this.authError = '';
                     this.clientForm = { id: null, name: '', phone: '', locations: ['zarya'] };
-                    this.subForm = { type: 'zarya', date: this.selectedDate, method:'', received:'' };this.paymentDraft=null;this.paymentToken=null;
+                    this.subForm = { type: 'zarya', date: this.selectedDate, method:'transfer', received:'' };this.paymentDraft=null;this.paymentToken=null;
                 },
                 canManageClients() { return this.currentUser?.uid === FitPPWorkspace.ownerUid && this.canEdit(); },
                 canEdit() { return !!workspace.operationsWritable && this.dataReady && !this.loading && !this.saving; },
@@ -702,7 +702,7 @@
                 clientForm: { id: null, name: '', phone: '', locations: ['zarya'] },
                 showSubModal: false,
                 subClient: null,
-                subForm: { type: 'zarya', date: FitPPStore.localDate(), method:'', received:'' },
+                subForm: { type: 'zarya', date: FitPPStore.localDate(), method:'transfer', received:'' },
                 paymentDraft:null,paymentToken:null,
                 updateLocationByDate() { return;
                     let day = new Date(this.selectedDate + 'T00:00:00Z').getUTCDay();
@@ -956,7 +956,7 @@
                 async confirmSalesMode() { this.confirmedSalesMode=null;try{const mode=await workspace.readSalesMode();this.confirmedSalesMode=mode;return mode;}catch(error){this.syncError='Не удалось подтвердить режим продаж на сервере. Отправка заблокирована. Проверьте соединение и повторите открытие формы. '+error.message;throw error;} },
                 saleRecoveryChecked:false,saleOperationId:null,saleDraftError:'',
                 async persistSaleDraft() { if(this.subForm?.legacy)return true;if(this.saleOperationId && this.showSubModal)try{await FitPPSaleRecovery.save({operationId:this.saleOperationId,clientId:this.subClient.id,form:JSON.parse(JSON.stringify(this.subForm)),visit:this.subVisit,phase:'draft'});}catch(e){this.syncError=e.message;return false;}return true; },
-                async restoreSaleDraft() { try{const draft=await FitPPSaleRecovery.unfinished();if(!draft)return;if(draft.phase==='pending' && draft.action?.subscriptionType && !draft.action.templateId)return await this.restoreLegacySale(draft);if(!FitPPRuntime.catalogEnabled)return;const c=this.clients.find(c=>c.id===draft.clientId);if(!c)return;this.saleOperationId=draft.operationId;this.subClient=c;this.subForm=draft.form;if(!this.subForm.templateSnapshot){const t=this.pricingSettings?.templates[this.subForm.templateId];if(t&&t.revision===this.subForm.expectedTemplateRevision)this.subForm.templateSnapshot=JSON.parse(JSON.stringify(t));this.subForm.requiresConfirmation=true;this.subForm.catalogChecked=false;this.subForm.priceConfirmed=false;}this.subVisit=draft.visit;this.subFormToken=store.token();const raw=await FitPPApplication.raw();if(raw.clients.some(c=>(c.subscriptions||[]).some(s=>s.saleOperationId===draft.operationId))){await FitPPSaleRecovery.confirm(draft.operationId);this.saleOperationId=null;this.saveStatus='Предыдущее оформление подтверждено. Повторная продажа не создана.';return;}const selected=raw.pricingSettings?.templates[this.subForm.templateId];if(!selected||selected.archived||selected.revision!==this.subForm.expectedTemplateRevision||raw.pricingSettings.revision!==this.subForm.catalogRevision){this.subForm.requiresConfirmation=true;this.subForm.catalogChecked=false;this.subForm.priceConfirmed=false;}this.showSubModal=true;await this.persistSaleDraft();}catch(error){this.syncError='Не удалось восстановить продажу. '+error.message;} },
+                async restoreSaleDraft() { try{const draft=await FitPPSaleRecovery.unfinished();if(!draft)return;if(draft.phase==='pending' && draft.action?.subscriptionType && !draft.action.templateId)return await this.restoreLegacySale(draft);if(!FitPPRuntime.catalogEnabled)return;const c=this.clients.find(c=>c.id===draft.clientId);if(!c)return;this.saleOperationId=draft.operationId;this.subClient=c;this.subForm=draft.form;if(draft.phase==='draft'&&!this.subForm.method)this.subForm.method='transfer';if(!this.subForm.templateSnapshot){const t=this.pricingSettings?.templates[this.subForm.templateId];if(t&&t.revision===this.subForm.expectedTemplateRevision)this.subForm.templateSnapshot=JSON.parse(JSON.stringify(t));this.subForm.requiresConfirmation=true;this.subForm.catalogChecked=false;this.subForm.priceConfirmed=false;}this.subVisit=draft.visit;this.subFormToken=store.token();const raw=await FitPPApplication.raw();if(raw.clients.some(c=>(c.subscriptions||[]).some(s=>s.saleOperationId===draft.operationId))){await FitPPSaleRecovery.confirm(draft.operationId);this.saleOperationId=null;this.saveStatus='Предыдущее оформление подтверждено. Повторная продажа не создана.';return;}const selected=raw.pricingSettings?.templates[this.subForm.templateId];if(!selected||selected.archived||selected.revision!==this.subForm.expectedTemplateRevision||raw.pricingSettings.revision!==this.subForm.catalogRevision){this.subForm.requiresConfirmation=true;this.subForm.catalogChecked=false;this.subForm.priceConfirmed=false;}this.showSubModal=true;await this.persistSaleDraft();}catch(error){this.syncError='Не удалось восстановить продажу. '+error.message;} },
                 paymentError:'',
                 openRefund(c) {
                     if(!this.canEdit())return;
@@ -1088,7 +1088,7 @@
                         try{const pending=await FitPPSaleRecovery.unfinished();if(pending){await this.restoreSaleDraft();return;}}catch(error){this.syncError=error.message;return;}
                         this.subClient=client;this.subVisit=visit;this.renewalClient=null;this.subFormToken=store.token();this.saleOperationId=null;
                         const first=this.saleTemplates().find(t=>t.id===(visit?.location==='pole'?'legacy-pole':'legacy-zarya'));
-                        this.subForm={homeGroupId:'',legacy:true,templateId:first.id,templateSnapshot:JSON.parse(JSON.stringify(first)),requiresConfirmation:false,date:visit?.date||this.selectedDate,method:'',received:''};
+                        this.subForm={homeGroupId:'',legacy:true,templateId:first.id,templateSnapshot:JSON.parse(JSON.stringify(first)),requiresConfirmation:false,date:visit?.date||this.selectedDate,method:'transfer',received:''};
                         this.syncError='';this.showSubModal=true;return;
                     }
                     try{if (!this.canEdit() || client.archivedAt || !this.clients.includes(client)) return;
@@ -1098,7 +1098,7 @@
                     const unfinished=await FitPPSaleRecovery.unfinished();if(unfinished){await this.restoreSaleDraft();return;}
                     this.saleOperationId='sale-'+crypto.randomUUID();
                     const first=this.activeTemplates().find(t=>!visit || t.locations.includes(visit.location));
-                    this.subForm = {templateId:first?.id||'',expectedTemplateRevision:first?.revision,templateSnapshot:first?JSON.parse(JSON.stringify(first)):null,catalogRevision:this.pricingSettings?.revision,requiresConfirmation:false,priceConfirmed:false,catalogChecked:false,date:visit?.date || this.selectedDate,method:'',received:''};
+                    this.subForm = {templateId:first?.id||'',expectedTemplateRevision:first?.revision,templateSnapshot:first?JSON.parse(JSON.stringify(first)):null,catalogRevision:this.pricingSettings?.revision,requiresConfirmation:false,priceConfirmed:false,catalogChecked:false,date:visit?.date || this.selectedDate,method:'transfer',received:''};
                     this.showSubModal = true;await this.persistSaleDraft();
                     }catch(error){this.syncError='Черновик продажи недоступен. '+error.message;}
                 },

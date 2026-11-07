@@ -44,7 +44,7 @@ if(desired==='attended'&&!items.length){
     <p data-debt hidden>К оплате ${due} ₽ с учётом баланса и долга. Оплату можно принять позже.</p>
     <fieldset data-payment hidden disabled>
       <p>К оплате ${due} ₽ с учётом баланса и долга.</p>
-      <label>Способ оплаты<select name="method" required><option value="">Выберите способ</option><option value="cash">Наличные</option><option value="transfer">Перевод</option></select></label>
+      <label>Способ оплаты<select name="method" required><option value="transfer">Перевод</option><option value="cash">Наличные</option></select></label>
       <label>Фактически получено, ₽<input name="received" type="number" min="0" step="0.01" value="${due}" required></label>
     </fieldset>`,async (f,button)=>{
       if(button?.name==='purchase'){
