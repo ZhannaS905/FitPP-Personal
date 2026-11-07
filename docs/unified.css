@@ -180,3 +180,11 @@
  #schedule-host .journal-summary strong { font-size:26px; }
  #schedule-host .journal-summary .journal-stat-value span { font-size:9px; }
 }
+
+/* Compact date and week controls. */
+#schedule-host .journal-date-row { gap:6px!important; margin:0!important; }
+#schedule-host #live-date { height:38px; min-height:38px; padding:0 8px; font-size:15px; border-radius:10px; }
+#schedule-host .journal-add { height:38px; min-height:38px; padding:0 12px; font-size:14px; border-radius:10px; }
+#schedule-host .week { gap:4px; margin:5px 0 6px; }
+#schedule-host .week button { min-height:40px; padding:3px 0; border-radius:10px; font-size:17px; line-height:1.1; }
+#schedule-host .week small { font-size:10px; line-height:1.1; margin:0 0 2px; }
