@@ -55,7 +55,7 @@ if(desired==='attended'&&!items.length){
       }
       if(!settlement)return false;
       const singlePayment=settlement==='pay';
-      return send({type:'attendance',workoutId:wid,date:w.date,location:w.location,clientId:cid,status:'attended',singlePayment,method:f.get('method'),received:Number(f.get('received')),paymentDate:FitPPOperations.today(),operationId});
+      return send({type:'attendance',workoutId:wid,date:w.date,location:w.location,clientId:cid,status:'attended',singlePayment,method:f.get('method'),received:Number(f.get('received')),paymentDate:w.date,operationId});
     },'Сохранить посещение');
   const save=form.querySelector('[type=submit]');
   const payment=form.querySelector('[data-payment]');

@@ -531,7 +531,7 @@
     const used=Math.min(money(balance(client)),price);
     next.price=price/100;
     next.singlePriceRevision=catalogMode ? pricing(data).singlePrices.revision : 0;
-    next.moneyChargeId=addMoney(data,client,{kind:'visitCharge',date:today,method:null,received:0,price,used,delta:-used,ref:next.operationId,visitDate:action.date,location:action.location,workoutId:action.workoutId||''},today);
+    next.moneyChargeId=addMoney(data,client,{kind:'visitCharge',date:action.date,method:null,received:0,price,used,delta:-used,ref:next.operationId,visitDate:action.date,location:action.location,workoutId:action.workoutId||''},today);
   }
   function cancelVisitCharge(data,client,operation,today) {
     const c=moneyState(client).charges.get(operation.moneyChargeId);
