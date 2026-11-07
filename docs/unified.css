@@ -135,3 +135,11 @@
   border-radius:8px;
   background:#0c4a6e;
 }
+
+/* Lesson header and equal-width management buttons. */
+#schedule-host .workout-heading { flex-wrap:wrap; }
+#schedule-host .workout-heading .time { flex-shrink:0; }
+#schedule-host .workout-heading .workout-add-client { font-size:12px; padding:8px 10px; white-space:nowrap; }
+#schedule-host .workout-heading .tag { margin-left:auto; }
+#schedule-host .workout-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+#schedule-host .workout-actions > button { width:100%; min-width:0; }
