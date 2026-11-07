@@ -113,13 +113,13 @@ test('external snapshots add and remove one client while preserving the date and
   journal.emit(sub, { [legacyKey]: true, [key]: true }, 2);
   assert.equal(journal.app.innerHTML.match(/Тестовый клиент/g)?.length, 1);
   assert.match(journal.app.innerHTML, /data-version="2"/);
-  assert.match(journal.app.innerHTML, /Записано<\/span><strong>1/);
+  assert.match(journal.app.innerHTML, /Записано<\/span><\/div><div class="journal-stat-value"><strong>1/);
 
   journal.emit(sub, {}, 3);
   assert.doesNotMatch(journal.app.innerHTML, /Тестовый клиент|data-workout-id="other"/);
   assert.match(journal.app.innerHTML, /id="live-date" type="date" value="2026-11-10"/);
   assert.match(journal.app.innerHTML, /data-id="zarya" data-location="zarya" aria-pressed="true"/);
-  assert.match(journal.app.innerHTML, /Записано<\/span><strong>0/);
+  assert.match(journal.app.innerHTML, /Записано<\/span><\/div><div class="journal-stat-value"><strong>0/);
   journal.tick();
   assert.equal(journal.bookings().length, 1);
   assert.equal(journal.reads.includes(bookingPath), false);

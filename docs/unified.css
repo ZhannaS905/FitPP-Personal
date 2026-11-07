@@ -150,3 +150,33 @@
 #schedule-host .workout-actions > button { width:100%; min-width:0; }
 
 #schedule-host .journal-booking-icon { width:16px; height:16px; flex-shrink:0; }
+
+/* Compact location tabs and illustrated journal totals. */
+#schedule-host .journal-locations button { min-height:44px; padding:6px 5px!important; border-color:#25475e; border-radius:16px!important; gap:8px; }
+#schedule-host .journal-locations .journal-location-icon { width:16px; height:22px; flex-shrink:0; }
+#schedule-host .journal-locations button>span:last-child { font-size:clamp(11px,2.9vw,17px); }
+#schedule-host .journal-locations button[aria-pressed=true] { border-color:var(--location-color); }
+#schedule-host .journal-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+#schedule-host .journal-summary>div { min-height:84px; padding:9px 12px; gap:8px; border-radius:18px; }
+#schedule-host .journal-summary .journal-stat-label { display:flex; align-items:center; gap:6px; font-size:14px; }
+#schedule-host .journal-summary .journal-stat-label svg { width:21px; height:21px; flex-shrink:0; }
+#schedule-host .journal-summary .journal-stat-label span { font-size:inherit; flex-basis:auto; color:inherit; }
+#schedule-host .journal-summary .journal-stat-value { display:flex; align-items:center; gap:8px; }
+#schedule-host .journal-summary strong { font-size:36px; line-height:1; }
+#schedule-host .journal-summary .journal-stat-value span { font-size:13px; flex-basis:auto; color:inherit; }
+@media(max-width:420px) {
+ #schedule-host .journal-summary { gap:6px; }
+ #schedule-host .journal-summary>div { padding:8px; min-height:78px; }
+ #schedule-host .journal-summary .journal-stat-label { gap:4px; font-size:11px; }
+ #schedule-host .journal-summary .journal-stat-label svg { width:17px; height:17px; }
+ #schedule-host .journal-summary .journal-stat-value { gap:5px; }
+ #schedule-host .journal-summary strong { font-size:30px; }
+ #schedule-host .journal-summary .journal-stat-value span { font-size:10px; }
+}
+@media(max-width:350px) {
+ #schedule-host .journal-summary>div { padding:7px 5px; }
+ #schedule-host .journal-summary .journal-stat-label { font-size:10px; gap:3px; }
+ #schedule-host .journal-summary .journal-stat-label svg { width:14px; height:14px; }
+ #schedule-host .journal-summary strong { font-size:26px; }
+ #schedule-host .journal-summary .journal-stat-value span { font-size:9px; }
+}
