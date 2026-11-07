@@ -31,9 +31,10 @@ Promise.allSettled([w.readHistory(),w.reference().get()]).then(([h,m])=>{
 }
 function bookingStatus(c,w,a){
   if(!c.booked)return '';
-  if(c.ambiguousBooking)return '<small class="journal-booking">Записан · общее бронирование на дату</small>';
+  const icon='<svg class="journal-booking-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="m6 10 2.5 2.5L14 7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if(c.ambiguousBooking)return '<small class="journal-booking">'+icon+'<span>Записан · общее бронирование на дату</span></small>';
   const version=bookings?.versions?.[c.bookingKey]??0;
-  return `<button class="journal-booking" data-account="cancelBooking" data-workout="${esc(w.id)}" data-key="${esc(c.bookingKey)}" data-version="${esc(version)}" data-date="${esc(w.date)}" data-location="${esc(w.location)}" ${a.canEdit()?'':'disabled'}>Записан</button>`;
+  return `<button class="journal-booking" data-account="cancelBooking" data-workout="${esc(w.id)}" data-key="${esc(c.bookingKey)}" data-version="${esc(version)}" data-date="${esc(w.date)}" data-location="${esc(w.location)}" ${a.canEdit()?'':'disabled'}>${icon}<span>Записан</span></button>`;
 }
 function person(c,w,a){
   const subs=c.client?FitPPStore.availableSubscriptions(c.client,w.location,w.date):[];
