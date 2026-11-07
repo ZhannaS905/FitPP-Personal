@@ -16,11 +16,20 @@ async function workoutById(wid){const a=app(),workspace=FitPPApplication.workspa
 async function addPerson(wid){
   const w=await workoutById(wid),workspace=FitPPApplication.workspace;
   if(!w||w.cancelled)throw Error('Занятие недоступно для записи');
-  editor('Записать на занятие',`<label>Клиент<select name="client" required><option value="">Выберите клиента</option>${app().clients.filter(c=>!c.archivedAt&&(c.locations||[]).includes(w.location)).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><p>Занятие спишется только после отметки посещения.</p>`,async f=>{
+  const owner=workspace.auth.currentUser?.uid,epoch=workspace.auth.sessionGeneration;
+  const bookings=await workspace.readBookings([]);
+  if(owner!==workspace.auth.currentUser?.uid||epoch!==workspace.auth.sessionGeneration)throw Error('Сессия изменилась');
+  const bookedIds=data=>new Set(FitPPCalendar.entries({...app(),workouts:{...app().workouts,[w.id]:w}},data,w).filter(c=>c.booked).map(c=>String(c.id)));
+  const booked=bookedIds(bookings);
+  const available=app().clients.filter(c=>!c.archivedAt&&(c.locations||[]).includes(w.location)&&!booked.has(String(c.id)));
+  const form=editor('Записать на занятие',`<label>Клиент<select name="client" required><option value="">Выберите клиента</option>${available.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label>${available.length?'':'<p>Все доступные клиенты уже записаны на это занятие.</p>'}<p>Занятие спишется только после отметки посещения.</p>`,async f=>{
     if(!app().canEdit())throw Error('Дождитесь загрузки данных');
     const cid=f.get('client'),data=await workspace.readBookings([]),key=FitPPBookings.workoutKey(w.id,cid);
+    if(bookedIds(data).has(String(cid)))throw Error('Клиент уже записан на это занятие. Откройте список заново.');
+    if(!available.some(c=>String(c.id)===String(cid)))throw Error('Выберите доступного клиента');
     await FitPPBookings.saveWorkout(workspace,w,key,true,data.versions[key]??0);
   },'Записать');
+  if(!available.length)form.querySelector('[type=submit]').hidden=true;
 }
 async function cancelBooking(wid,key,version,date,location){
   editor('Отменить запись?','',async ()=>{
