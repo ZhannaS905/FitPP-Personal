@@ -1053,3 +1053,26 @@ header.app-header > div, .detail-shell, .bottom-nav { padding-left: max(16px, en
 #schedule-host .journal-panel .actions > :is(.journal-move,.journal-cancel):disabled { opacity:.45; cursor:not-allowed; }
 
 .client-max-status.is-linked { color:#34d399; }
+
+/* Modern Clients tab toolbar, responsive filter chips and status cards */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.client-tile {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.client-tile:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+@media (max-width: 480px) {
+  .client-tile-footer {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .client-tile-footer .client-sell,
+  .client-tile-footer .client-action {
+    width: 100% !important;
+    text-align: center;
+  }
+}

@@ -104,31 +104,204 @@
           <div id="app" aria-live="polite"></div>
         </div></section>
         <!-- TAB 2: CLIENTS -->
-        <div x-show="activeTab === 'clients' || activeTab === 'archive'" class="client-list">
-            <div class="detail-card"><button @click="activeTab = 'clients'" class="px-3 py-2">Активные клиенты</button><button @click="activeTab = 'archive'" class="px-3 py-2">Архив клиентов</button><p x-show="activeTab === 'archive'">История и финансы сохранены. Откройте карточку для просмотра или восстановления.</p></div>
-            <div x-show="visibleClients().length === 0" class="empty-state"><strong>Ваша команда начинается здесь</strong>Добавьте первого клиента, чтобы вести журнал тренировок.</div>
+        <div x-show="activeTab === 'clients' || activeTab === 'archive'" class="client-list space-y-4">
+            <!-- Client Toolbar -->
+            <div class="client-toolbar bg-slate-800/90 border border-slate-700/80 rounded-2xl p-4 shadow-lg space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <!-- Segmented tab toggle -->
+                    <div class="inline-flex p-1 bg-slate-900/90 border border-slate-700/80 rounded-xl" role="tablist" aria-label="Списки клиентов">
+                        <button type="button"
+                                role="tab"
+                                :aria-selected="activeTab === 'clients'"
+                                @click="activeTab = 'clients'"
+                                class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                                :class="activeTab === 'clients' ? 'bg-emerald-600 text-white shadow-sm font-semibold' : 'text-slate-300 hover:text-white'">
+                            <span>Активные</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded-full"
+                                  :class="activeTab === 'clients' ? 'bg-emerald-700/90 text-emerald-100' : 'bg-slate-800 text-slate-400'"
+                                  x-text="activeClientsCount()"></span>
+                        </button>
+                        <button type="button"
+                                role="tab"
+                                :aria-selected="activeTab === 'archive'"
+                                @click="activeTab = 'archive'"
+                                class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                                :class="activeTab === 'archive' ? 'bg-slate-700 text-white shadow-sm font-semibold' : 'text-slate-400 hover:text-white'">
+                            <span>Архив</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded-full"
+                                  :class="activeTab === 'archive' ? 'bg-slate-600 text-slate-200' : 'bg-slate-800 text-slate-400'"
+                                  x-text="archiveClientsCount()"></span>
+                        </button>
+                    </div>
+
+                    <!-- Add client action -->
+                    <button :disabled="!canEdit()"
+                            @click="openClientModal()"
+                            class="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:pointer-events-none text-white text-sm font-semibold rounded-xl shadow transition-colors">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>Добавить клиента</span>
+                    </button>
+                </div>
+
+                <!-- Archive description -->
+                <p x-show="activeTab === 'archive'" class="text-xs text-slate-400 bg-slate-900/50 border border-slate-700/50 rounded-xl p-2.5">
+                    История и финансы сохранены. Откройте карточку для просмотра или восстановления.
+                </p>
+
+                <!-- Search Input -->
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </div>
+                    <input type="text"
+                           x-model="clientSearch"
+                           placeholder="Поиск по имени или телефону…"
+                           aria-label="Поиск клиентов"
+                           class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-9 pr-9 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors">
+                    <button type="button"
+                            x-show="clientSearch"
+                            @click="clientSearch = ''"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                            aria-label="Очистить поиск">
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Quick Filter Chips (for active clients tab) -->
+                <div x-show="activeTab === 'clients'" class="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar text-xs">
+                    <button type="button"
+                            @click="clientFilter = 'all'"
+                            class="px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors font-medium flex items-center gap-1.5"
+                            :class="clientFilter === 'all' ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300' : 'bg-slate-900/60 border-slate-700/70 text-slate-400 hover:text-slate-200'">
+                        <span>Все</span>
+                        <span class="opacity-75" x-text="clientFilterCounts().all"></span>
+                    </button>
+                    <button type="button"
+                            @click="clientFilter = 'activeSub'"
+                            class="px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors font-medium flex items-center gap-1.5"
+                            :class="clientFilter === 'activeSub' ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300' : 'bg-slate-900/60 border-slate-700/70 text-slate-400 hover:text-slate-200'">
+                        <span>С абонементом</span>
+                        <span class="opacity-75" x-text="clientFilterCounts().activeSub"></span>
+                    </button>
+                    <button type="button"
+                            @click="clientFilter = 'expiring'"
+                            class="px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors font-medium flex items-center gap-1.5"
+                            :class="clientFilter === 'expiring' ? 'bg-amber-600/25 border-amber-500 text-amber-300' : 'bg-slate-900/60 border-slate-700/70 text-slate-400 hover:text-slate-200'">
+                        <span>Истекают</span>
+                        <span class="opacity-75" x-text="clientFilterCounts().expiring"></span>
+                    </button>
+                    <button type="button"
+                            @click="clientFilter = 'noSub'"
+                            class="px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors font-medium flex items-center gap-1.5"
+                            :class="clientFilter === 'noSub' ? 'bg-slate-700/40 border-slate-600 text-slate-300' : 'bg-slate-900/60 border-slate-700/70 text-slate-400 hover:text-slate-200'">
+                        <span>Без абонемента</span>
+                        <span class="opacity-75" x-text="clientFilterCounts().noSub"></span>
+                    </button>
+                    <button type="button"
+                            @click="clientFilter = 'debt'"
+                            class="px-2.5 py-1 rounded-lg border whitespace-nowrap transition-colors font-medium flex items-center gap-1.5"
+                            :class="clientFilter === 'debt' ? 'bg-rose-900/30 border-rose-500 text-rose-300' : 'bg-slate-900/60 border-slate-700/70 text-slate-400 hover:text-slate-200'">
+                        <span>С долгом</span>
+                        <span class="opacity-75" x-text="clientFilterCounts().debt"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Empty states -->
+            <div x-show="visibleClients().length === 0" class="empty-state text-center py-8 px-4 bg-slate-800/50 border border-slate-700/60 rounded-2xl">
+                <template x-if="(activeTab === 'clients' ? activeClientsCount() : archiveClientsCount()) === 0">
+                    <div>
+                        <strong class="block text-base text-slate-200 mb-1" x-text="activeTab === 'clients' ? 'Ваша команда начинается здесь' : 'В архиве пока нет клиентов'"></strong>
+                        <p class="text-sm text-slate-400" x-text="activeTab === 'clients' ? 'Добавьте первого клиента, чтобы вести журнал тренировок.' : 'Архивированные клиенты будут отображаться здесь.'"></p>
+                        <button x-show="activeTab === 'clients'" :disabled="!canEdit()" @click="openClientModal()" class="mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold shadow transition-colors">+ Добавить клиента</button>
+                    </div>
+                </template>
+                <template x-if="(activeTab === 'clients' ? activeClientsCount() : archiveClientsCount()) > 0">
+                    <div>
+                        <strong class="block text-base text-slate-200 mb-1">Ничего не найдено</strong>
+                        <p class="text-sm text-slate-400 mb-3">По вашему запросу не найдено ни одного клиента.</p>
+                        <button type="button" @click="clientSearch = ''; clientFilter = 'all'" class="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-medium transition-colors">Сбросить поиск и фильтры</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Client Grid -->
             <div class="client-grid grid grid-cols-1 md:grid-cols-2 gap-4">
                 <template x-for="client in visibleClients()" :key="client.id">
                     <div class="client-tile bg-slate-800 border border-slate-700 rounded-2xl">
                         <div class="client-tile-top">
-                            <span class="avatar" aria-hidden="true" x-text="getInitials(client.name)"></span>
+                            <span class="avatar cursor-pointer" aria-hidden="true" @click="openClientDetail(client)" title="Открыть карточку клиента" x-text="getInitials(client.name)"></span>
                             <div class="client-tile-identity">
-                                <button class="client-name" @click="openClientDetail(client)" x-text="client.name"></button>
-                                <p class="client-phone"><span x-text="client.phone || 'Телефон не указан'"></span> <span class="client-max-status" :class="{'is-linked': $store.maxStatus.ids.includes(client.id)}" :title="$store.maxStatus.ids.includes(client.id) ? 'Привязка MAX подтверждена' : $store.maxStatus.state === 'ready' ? 'Подтверждённой привязки MAX нет' : 'Статус MAX недоступен'" x-text="$store.maxStatus.ids.includes(client.id) ? 'MAX ✓' : 'MAX'">MAX</span></p>
+                                <button class="client-name" @click="openClientDetail(client)" title="Открыть карточку клиента" x-text="client.name"></button>
+                                <p class="client-phone">
+                                    <template x-if="client.phone">
+                                        <a :href="'tel:' + client.phone.replace(/[^+0-9]/g, '')" @click.stop class="hover:text-emerald-400 transition-colors inline-flex items-center gap-1" title="Позвонить">
+                                            <svg class="w-3.5 h-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2C9 21 3 15 3 5a2 2 0 0 1 2-2Z"/></svg>
+                                            <span x-text="client.phone"></span>
+                                        </a>
+                                    </template>
+                                    <template x-if="!client.phone">
+                                        <span>Телефон не указан</span>
+                                    </template>
+                                    <span class="client-max-status" :class="{'is-linked': $store.maxStatus.ids.includes(client.id)}" :title="$store.maxStatus.ids.includes(client.id) ? 'Привязка MAX подтверждена' : $store.maxStatus.state === 'ready' ? 'Подтверждённой привязки MAX нет' : 'Статус MAX недоступен'" x-text="$store.maxStatus.ids.includes(client.id) ? 'MAX ✓' : 'MAX'">MAX</span>
+                                </p>
                             </div>
                             <button class="client-action" :disabled="!canEdit()" @click="editClient(client)">Изменить</button>
                         </div>
                         <div class="client-tile-footer">
-                            <div class="client-subscription"><span class="text-xs text-emerald-400" x-text="'Баланс: ' + moneyBalance(client) + ' ₽'"></span>
-                                <span class="client-balance" x-text="'Остаток: ' + (getClientActiveSubscription(client)?.left ?? 0) + ' зан.'"></span>
-                                <span class="client-expiry" x-text="'До: ' + formatSubscriptionDate(getClientActiveSubscription(client)?.expires)"></span>
-<div class="subscription-warnings" x-show="getSubscriptionWarnings(client).length">
-    <template x-for="warning in getSubscriptionWarnings(client)" :key="warning.key">
-        <span class="subscription-warning" :class="'subscription-warning-' + warning.kind" :title="warning.title" x-text="warning.text"></span>
-    </template>
-</div>
+                            <div class="client-subscription">
+                                <!-- Status badge -->
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold"
+                                      :class="{
+                                          'bg-emerald-950/70 border border-emerald-500/50 text-emerald-300': clientSubStatus(client).kind === 'active',
+                                          'bg-amber-950/70 border border-amber-500/60 text-amber-200': clientSubStatus(client).kind === 'expiring',
+                                          'bg-sky-950/70 border border-sky-500/50 text-sky-300': clientSubStatus(client).kind === 'frozen',
+                                          'bg-rose-950/50 border border-rose-500/50 text-rose-300': clientSubStatus(client).kind === 'ended',
+                                          'bg-slate-900/60 border border-slate-700 text-slate-400': clientSubStatus(client).kind === 'none'
+                                      }">
+                                    <span class="w-1.5 h-1.5 rounded-full"
+                                          :class="{
+                                              'bg-emerald-400': clientSubStatus(client).kind === 'active',
+                                              'bg-amber-400 animate-pulse': clientSubStatus(client).kind === 'expiring',
+                                              'bg-sky-400': clientSubStatus(client).kind === 'frozen',
+                                              'bg-rose-400': clientSubStatus(client).kind === 'ended',
+                                              'bg-slate-500': clientSubStatus(client).kind === 'none'
+                                          }"></span>
+                                    <span x-text="clientSubStatus(client).label"></span>
+                                </span>
+
+                                <!-- Debt badge -->
+                                <template x-if="clientDebt(client) > 0">
+                                    <button type="button"
+                                            @click.stop="openDebtPayment(client)"
+                                            :disabled="!canEdit()"
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-950 border border-rose-500 text-rose-200 hover:bg-rose-900 transition-colors"
+                                            title="Нажмите для приёма оплаты долга">
+                                        <span>🚨 Долг: <strong x-text="clientDebt(client) + ' ₽'"></strong></span>
+                                    </button>
+                                </template>
+
+                                <!-- Positive balance badge (when no debt) -->
+                                <template x-if="clientDebt(client) <= 0 && moneyBalance(client) > 0">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-emerald-950/50 border border-emerald-500/40 text-emerald-300"
+                                          x-text="'Баланс: ' + moneyBalance(client) + ' ₽'"></span>
+                                </template>
+
+                                <!-- Warnings -->
+                                <div class="subscription-warnings w-full" x-show="getSubscriptionWarnings(client).length">
+                                    <template x-for="warning in getSubscriptionWarnings(client)" :key="warning.key">
+                                        <span class="subscription-warning" :class="'subscription-warning-' + warning.kind" :title="warning.title" x-text="warning.text"></span>
+                                    </template>
+                                </div>
                             </div>
-                            <button class="client-action client-sell" :disabled="!canEdit()" @click="openSubModal(client)">+ Продать</button>
+
+                            <!-- Footer action button -->
+                            <template x-if="activeTab === 'clients'">
+                                <button class="client-action client-sell" :disabled="!canEdit()" @click="openSubModal(client)">+ Продать</button>
+                            </template>
+                            <template x-if="activeTab === 'archive'">
+                                <button class="client-action" :disabled="!canManageClients()" @click="archiveClient(client)">Восстановить</button>
+                            </template>
                         </div>
                     </div>
                 </template>
@@ -437,7 +610,10 @@
                 renewalClient: null,
                 subscriptionChoice: null,
                 bookingAuthGeneration: null,
+                clientSearch: '',
+                clientFilter: 'all',
                 resetSessionUI() {
+                    this.clientSearch = ''; this.clientFilter = 'all';
                     this.expenseReady=false;this.expenseDraft=null;this.expenseDelete=null;this.expenseState=null;this.expenseGroups=[];this.rentDraft=null;this.rentToken=null;this.expenseMessage='';
                     if(this.bookingAuthGeneration !== workspace.auth.sessionGeneration) {
                         this.testBookings={};this.bookingVersions={};this.bookingReady=false;
@@ -478,8 +654,8 @@
                 calendarTimer: null,
                 freezeForm: null,
                 freezeToken: null,
-                isFrozen(sub) { return FitPPStore.frozenOn(sub, this.today); },
-                isFreezePending(sub) { return FitPPStore.pendingFreeze(sub, this.today); },
+                isFrozen(sub) { try { return FitPPStore.frozenOn(sub, this.today); } catch { return false; } },
+                isFreezePending(sub) { try { return FitPPStore.pendingFreeze(sub, this.today); } catch { return false; } },
                 openFreeze(client, sub, index) {
                     if (!this.canEdit() || !this.clients.includes(client) || client.subscriptions?.[index] !== sub) return;
                     this.today = FitPPStore.localDate();
@@ -511,7 +687,76 @@
                     if(!selected||selected.id!==sub?.id){this.syncError='Абонемент изменился. Откройте актуальную карточку.';return;}
                     return FitPPAccountingUI.extend(current.id,selected.id);
                 },
-                visibleClients() { return this.clients.filter(c => !!c.archivedAt === (this.activeTab === 'archive')); },
+                activeClientsCount() {
+                    return (this.clients || []).filter(c => !c.archivedAt).length;
+                },
+                archiveClientsCount() {
+                    return (this.clients || []).filter(c => !!c.archivedAt).length;
+                },
+                clientFilterCounts() {
+                    const list = (this.clients || []).filter(c => !c.archivedAt);
+                    return {
+                        all: list.length,
+                        activeSub: list.filter(c => this.clientSubStatus(c).kind === 'active').length,
+                        expiring: list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind)).length,
+                        noSub: list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind)).length,
+                        debt: list.filter(c => this.clientDebt(c) > 0).length,
+                    };
+                },
+                clientSubStatus(client) {
+                    if (!client) return { kind: 'none', label: 'Нет данных', sub: null };
+                    const validSubs = (client.subscriptions || []).filter(s => !s.cancelledAt);
+                    if (!validSubs.length) return { kind: 'none', label: 'Нет абонемента', sub: null };
+                    const current = validSubs.find(s => s.left > 0 && s.expires >= this.today);
+                    if (current) {
+                        if (this.isFrozen(current)) {
+                            const end = current.freezes?.at(-1)?.end || current.expires;
+                            return { kind: 'frozen', label: '❄️ Заморожен до ' + this.formatSubscriptionDate(end), sub: current };
+                        }
+                        if (current.left <= 2) {
+                            return { kind: 'expiring', label: 'Осталось: ' + current.left + ' зан. · до ' + this.formatSubscriptionDate(current.expires), sub: current };
+                        }
+                        return { kind: 'active', label: current.left + ' зан. · до ' + this.formatSubscriptionDate(current.expires), sub: current };
+                    }
+                    const frozen = validSubs.find(s => this.isFrozen(s));
+                    if (frozen) {
+                        const end = frozen.freezes?.at(-1)?.end || frozen.expires;
+                        return { kind: 'frozen', label: '❄️ Заморожен до ' + this.formatSubscriptionDate(end), sub: frozen };
+                    }
+                    const latest = validSubs[validSubs.length - 1];
+                    if (latest.left === 0) {
+                        return { kind: 'ended', label: 'Закончился (0 зан.)', sub: latest };
+                    }
+                    if (latest.expires < this.today) {
+                        return { kind: 'ended', label: 'Истёк ' + this.formatSubscriptionDate(latest.expires), sub: latest };
+                    }
+                    return { kind: 'none', label: 'Нет абонемента', sub: latest };
+                },
+                visibleClients() {
+                    const isArchive = this.activeTab === 'archive';
+                    let list = (this.clients || []).filter(c => !!c.archivedAt === isArchive);
+                    const q = (this.clientSearch || '').trim().toLowerCase();
+                    if (q) {
+                        const qDigits = q.replace(/\D/g, '');
+                        list = list.filter(c => {
+                            const nameMatch = (c.name || '').toLowerCase().includes(q);
+                            const phoneMatch = qDigits && (c.phone || '').replace(/\D/g, '').includes(qDigits);
+                            return nameMatch || phoneMatch;
+                        });
+                    }
+                    if (!isArchive && this.clientFilter !== 'all') {
+                        if (this.clientFilter === 'activeSub') {
+                            list = list.filter(c => this.clientSubStatus(c).kind === 'active');
+                        } else if (this.clientFilter === 'expiring') {
+                            list = list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind));
+                        } else if (this.clientFilter === 'noSub') {
+                            list = list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind));
+                        } else if (this.clientFilter === 'debt') {
+                            list = list.filter(c => this.clientDebt(c) > 0);
+                        }
+                    }
+                    return list.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ru'));
+                },
                 async archiveClient(client) {
                     if (!client || !this.canManageClients()) return;
                     const token = store.token();
@@ -752,10 +997,10 @@
                 },
                 getClientActiveSubscription(client) {
                     if (!client || !client.subscriptions || client.subscriptions.length === 0) return null;
-                    // Ищем первый абонемент, где есть занятия
-                    let active = client.subscriptions.find(s => s.left > 0 && !s.cancelledAt);
-                    // Если такого нет, возвращаем последний, чтобы показать "0"
-                    return active || client.subscriptions[client.subscriptions.length - 1];
+                    let active = client.subscriptions.find(s => s.left > 0 && !s.cancelledAt && s.expires >= this.today);
+                    if (active) return active;
+                    let hasLeft = client.subscriptions.find(s => s.left > 0 && !s.cancelledAt);
+                    return hasLeft || client.subscriptions[client.subscriptions.length - 1];
                 },
                 getClientSubInfo(client) {
                     if (!client) return 'Нет данных';
