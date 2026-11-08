@@ -1001,7 +1001,7 @@ header.app-header > div, .detail-shell, .bottom-nav { padding-left: max(16px, en
 /* Existing journal cards with the restored booking control. */
 .attendance-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .attendance-actions .firestore-booking{background:#103958!important;border-color:#38a4e8!important;color:#c9edff!important}
-.journal-summary [role=button]{cursor:pointer}.journal-summary [role=button]:focus-visible{outline:2px solid #38bdf8;outline-offset:3px}
+.journal-summary [role=button]{cursor:pointer}.journal-summary [role=button]:hover{filter:brightness(1.15)}.journal-summary [role=button]:active{transform:scale(0.98)}.journal-summary [role=button]:focus-visible{outline:2px solid #38bdf8;outline-offset:3px}
 .booked-overlay{position:fixed;inset:0;z-index:120;background:#020b15d9;padding:16px;display:flex;align-items:center;justify-content:center}
 .booked-dialog{width:100%;max-width:640px;max-height:90dvh;overflow:auto;background:#091b29;border:1px solid #284b60;border-radius:20px;padding:16px;box-sizing:border-box}
 .booked-dialog h2{font-size:20px;margin:12px 0}.booked-close{float:right;padding:8px 12px;background:#263d51;border-radius:10px}.booked-client{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid #284355}.booked-client label{display:grid;gap:6px}.booked-client select{width:100%;min-height:44px;background:#102435;color:white;border:1px solid #42647b;border-radius:10px;padding:8px;font-size:16px}

@@ -17,6 +17,16 @@ async function openJournal() {
   const window = new EventTarget();
   const app = new EventTarget();
   const tabs = new EventTarget();
+  const dialog = new EventTarget();
+  dialog.showModal = () => { dialog.open = true; };
+  dialog.close = () => { dialog.open = false; };
+  const form = new EventTarget();
+  const submitBtn = { hidden: false };
+  form.querySelector = sel => sel === '[type=submit]' ? submitBtn : null;
+  const modalTitle = { textContent: '' };
+  const fields = { innerHTML: '' };
+  const errorEl = { textContent: '' };
+  const closeBtn = { disabled: false };
   const click = dataset => {
     const event = new Event('click');
     Object.defineProperty(event, 'target', { value: { closest: () => ({ dataset }) } });
@@ -59,7 +69,16 @@ async function openJournal() {
       body: {},
       getElementById: id => id === 'app' ? app : null,
       createElement: () => ({ setAttribute() {} }),
-      querySelector: selector => selector === '.schedule-tabs' ? tabs : null,
+      querySelector: selector => {
+        if (selector === '.schedule-tabs') return tabs;
+        if (selector === '#dialog') return dialog;
+        if (selector === '#form') return form;
+        if (selector === '#modal-title') return modalTitle;
+        if (selector === '#fields') return fields;
+        if (selector === '#error') return errorEl;
+        if (selector === '#close') return closeBtn;
+        return null;
+      },
       querySelectorAll: () => []
     },
     firebase: {
@@ -74,7 +93,11 @@ async function openJournal() {
       view: () => ({ groups: [{ id: 'zarya', name: 'Заря' }, { id: 'pole', name: 'Поле чудес' }] })
     },
     FitPPCalendar: calendar,
-    FitPPStore: { availableSubscriptions: () => [], debt: () => 0 },
+    FitPPStore: {
+      availableSubscriptions: () => [],
+      debt: () => 0,
+      subscriptionTerms: s => ({ name: s.name || 'Абонемент', locations: s.locations || ['zarya', 'pole', 'online'] })
+    },
     FitPPOperations: { today: calendar.today },
     FitPPAccountingUI: { canManage: () => true },
     Alpine: { $data: () => data },
@@ -88,7 +111,8 @@ async function openJournal() {
   load('live-journal.js');
   await flush();
   return {
-    app, click, reads, tick, window,
+    app, click, reads, tick, window, data,
+    dialog, modalTitle, fields, submitBtn, closeBtn,
     bookings: () => subscriptions.filter(sub => sub.path === bookingPath),
     setUser: user => { data.currentUser = user; authChanged(user); tick(); },
     emit: (sub, entries, version, metadata) => sub.next(snapshot({
@@ -149,4 +173,29 @@ test('sign-out and page hide unsubscribe once and discard stale callbacks', asyn
   journal.emit(second, { [key]: true }, 2);
   assert.doesNotMatch(journal.app.innerHTML, /Тестовый клиент/);
   assert.deepEqual(journal.bookings().map(sub => sub.stops), [1, 1, 0]);
+});
+
+test('clicking expiring stat card opens dialog with expiring client list', async () => {
+  const journal = await openJournal();
+  journal.data.clients = [{
+    id: 'c1',
+    name: 'Иван Иванов',
+    phone: '+79991234567',
+    subscriptions: [{
+      id: 's1',
+      name: 'Абонемент 8',
+      left: 1,
+      expires: '2026-11-20'
+    }]
+  }];
+  journal.tick();
+  assert.match(journal.app.innerHTML, /data-action="expiring"/);
+
+  journal.click({ action: 'expiring' });
+  assert.equal(journal.dialog.open, true);
+  assert.match(journal.modalTitle.textContent, /Истекающие абонементы/);
+  assert.match(journal.fields.innerHTML, /Иван Иванов/);
+  assert.match(journal.fields.innerHTML, /Остаток: 1 занятие/);
+  assert.match(journal.fields.innerHTML, /\+79991234567/);
+  assert.equal(journal.submitBtn.hidden, true);
 });
