@@ -111,7 +111,7 @@ async function openJournal() {
   load('live-journal.js');
   await flush();
   return {
-    app, click, reads, tick, window, data,
+    app, click, reads, tick, window, data, tabs,
     dialog, modalTitle, fields, submitBtn, closeBtn,
     bookings: () => subscriptions.filter(sub => sub.path === bookingPath),
     setUser: user => { data.currentUser = user; authChanged(user); tick(); },
@@ -198,4 +198,23 @@ test('clicking expiring stat card opens dialog with expiring client list', async
   assert.match(journal.fields.innerHTML, /Остаток: 1 занятие/);
   assert.match(journal.fields.innerHTML, /\+79991234567/);
   assert.equal(journal.submitBtn.hidden, true);
+});
+
+test('calendar tab displays month grid and selecting day updates day view and allows switching to journal', async () => {
+  const journal = await openJournal();
+  const tabEvt = new Event('click');
+  Object.defineProperty(tabEvt, 'target', { value: { dataset: { tab: 'calendar' } } });
+  journal.tabs.dispatchEvent(tabEvt);
+
+  assert.match(journal.app.innerHTML, /calendar-month-card/);
+  assert.match(journal.app.innerHTML, /calendar-grid/);
+  assert.match(journal.app.innerHTML, /data-action="cal-select-day"/);
+  assert.match(journal.app.innerHTML, /data-action="open-journal-day"/);
+
+  journal.click({ action: 'cal-select-day', date: day });
+  assert.match(journal.app.innerHTML, /calendar-day-details/);
+
+  journal.click({ action: 'open-journal-day', date: day });
+  assert.match(journal.app.innerHTML, /journal-summary/);
+  assert.match(journal.app.innerHTML, /id="live-date"/);
 });

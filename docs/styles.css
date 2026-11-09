@@ -1076,3 +1076,22 @@ header.app-header > div, .detail-shell, .bottom-nav { padding-left: max(16px, en
     text-align: center;
   }
 }
+
+/* Calendar Month Grid */
+#schedule-host .calendar-day-cell {
+  min-height: 58px !important;
+  padding: 4px 5px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  align-items: stretch !important;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+@media (min-width: 640px) {
+  #schedule-host .calendar-day-cell {
+    min-height: 72px !important;
+    padding: 6px 8px !important;
+  }
+}
