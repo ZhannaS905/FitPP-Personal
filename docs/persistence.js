@@ -272,9 +272,14 @@
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month < '2026-11' || !['zarya', 'pole'].includes(hall))
       throw fail('Некорректный месяц или зал аренды.');
     const [y, m] = month.split('-').map(Number), dates = [];
-    for (let d = 1; d <= new Date(Date.UTC(y, m, 0)).getUTCDate(); d++) {
+    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    for (let d = 1; d <= daysInMonth; d++) {
       const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-      if ((hall === 'zarya' ? [1, 3] : [2, 4]).includes(day)) dates.push(`${month}-${String(d).padStart(2, '0')}`);
+      if (month < '2026-12') {
+        if ((hall === 'zarya' ? [1, 3] : [2, 4]).includes(day)) dates.push(`${month}-${String(d).padStart(2, '0')}`);
+      } else {
+        dates.push(`${month}-${String(d).padStart(2, '0')}`);
+      }
     }
     return dates;
   }
@@ -286,7 +291,7 @@
         throw fail('Некорректные даты аренды.');
     }
   }
-  const rentTotal = entry => entry ? entry.zarya.length * 800 + entry.pole.length * 600 : 0;
+  const rentTotal = entry => entry ? (entry.zarya?.length || 0) * 800 + (entry.pole?.length || 0) * 600 : 0;
 
   // Explicit local-only model. The application never enables this factory.
   const catalogKeys = (v, keys) => plain(v) && Object.keys(v).every(k=>keys.includes(k)) && keys.every(k=>Object.hasOwn(v,k));

@@ -335,11 +335,77 @@
                 </div>
                 <details class="tax-history" x-show="currentMonth >= '2026-11'"><summary>Аренда по занятиям</summary>
                   <p class="text-sm text-slate-400">Заря — 800 ₽, Поле чудес — 600 ₽ за выбранный день. Не дублируйте эту сумму в ручных расходах.</p>
-                  <button @click="openRent()" :disabled="!canEdit() || !expenseReady">Изменить дни аренды</button>
-                  <template x-if="rentDraft"><form @submit.prevent="saveRent()" class="space-y-3">
-                    <template x-for="hall in ['zarya','pole']" :key="hall"><fieldset><legend x-text="hall === 'zarya' ? 'Заря' : 'Поле чудес'"></legend><template x-for="d in rentDays(hall)" :key="d"><label class="inline-flex p-2 gap-2"><input type="checkbox" :value="d" x-model="rentDraft[hall]"><span x-text="d.slice(8)"></span></label></template></fieldset></template>
-                    <p x-text="rentDraftTotal()+' ₽'"></p><p role="alert" x-text="rentError"></p><button type="submit" :disabled="saving">Сохранить аренду</button><button type="button" @click="rentDraft=null">Отмена</button>
-                  </form></template>
+                  
+                  <div x-show="!rentDraft" class="space-y-2 pt-1">
+                    <div class="text-xs text-slate-300 space-y-1.5 bg-slate-900/60 rounded-xl p-3 border border-slate-800">
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Заря (800 ₽/день):</span>
+                        <strong class="text-emerald-400 font-semibold" x-text="rentSavedSummary('zarya')"></strong>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Поле чудес (600 ₽/день):</span>
+                        <strong class="text-emerald-400 font-semibold" x-text="rentSavedSummary('pole')"></strong>
+                      </div>
+                      <div class="flex justify-between items-center pt-1.5 border-t border-slate-800 font-semibold text-slate-200">
+                        <span>Итого аренда за месяц:</span>
+                        <span class="text-emerald-300" x-text="rentSavedTotal() + ' ₽'"></span>
+                      </div>
+                    </div>
+                    <button type="button" @click="openRent()" :disabled="!canEdit() || !expenseReady" class="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-sm py-2 px-3 rounded-xl border border-slate-700 transition-colors font-medium">
+                      Изменить дни аренды
+                    </button>
+                  </div>
+
+                  <template x-if="rentDraft">
+                    <form @submit.prevent="saveRent()" class="space-y-3 pt-2">
+                      <template x-for="hall in ['zarya','pole']" :key="hall">
+                        <div class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-3 space-y-2">
+                          <div class="flex items-center justify-between text-xs">
+                            <span class="font-semibold text-slate-200" x-text="hall === 'zarya' ? '📍 Заря (800 ₽/день)' : '📍 Поле чудес (600 ₽/день)'"></span>
+                            <span class="text-emerald-400 font-medium" x-text="rentHallCount(hall) + ' дн. · ' + rentHallTotal(hall) + ' ₽'"></span>
+                          </div>
+                          <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                            <span class="text-slate-500 font-medium py-0.5">Пн</span>
+                            <span class="text-slate-500 font-medium py-0.5">Вт</span>
+                            <span class="text-slate-500 font-medium py-0.5">Ср</span>
+                            <span class="text-slate-500 font-medium py-0.5">Чт</span>
+                            <span class="text-slate-500 font-medium py-0.5">Пт</span>
+                            <span class="text-slate-500 font-medium py-0.5">Сб</span>
+                            <span class="text-slate-500 font-medium py-0.5">Вс</span>
+                            <template x-for="cell in rentCalendarCells(hall)" :key="cell.key">
+                              <div>
+                                <template x-if="cell.pad">
+                                  <div class="h-7 w-full"></div>
+                                </template>
+                                <template x-if="!cell.pad">
+                                  <button type="button"
+                                          :disabled="!cell.clickable"
+                                          @click="toggleRentDay(hall, cell.date)"
+                                          :class="{
+                                            'bg-emerald-600 text-white font-bold border border-emerald-400/80 shadow-sm shadow-emerald-950': cell.selected,
+                                            'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700/60': !cell.selected && cell.clickable,
+                                            'opacity-20 bg-slate-900/50 text-slate-600 cursor-not-allowed border border-transparent': !cell.clickable
+                                          }"
+                                          class="h-7 w-full rounded-lg flex items-center justify-center text-xs transition-colors">
+                                    <span x-text="cell.day"></span>
+                                  </button>
+                                </template>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                      <div class="flex items-center justify-between font-semibold pt-1 text-xs">
+                        <span class="text-slate-300">Итого к сохранению:</span>
+                        <span class="text-sm text-emerald-400" x-text="rentDraftTotal() + ' ₽'"></span>
+                      </div>
+                      <p role="alert" x-text="rentError" class="text-rose-400 text-xs font-medium"></p>
+                      <div class="flex gap-2">
+                        <button type="submit" :disabled="saving" class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium py-2 px-3 rounded-xl transition-colors">Сохранить аренду</button>
+                        <button type="button" @click="rentDraft=null" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-2 px-3 rounded-xl border border-slate-700 transition-colors">Отмена</button>
+                      </div>
+                    </form>
+                  </template>
                 </details>
                 <button @click="openExpense()" :disabled="!expenseReady || expenseBusy" class="bg-emerald-600 rounded-xl p-3 w-full">+ Добавить расход</button>
                 <p role="status" x-text="expenseMessage"></p>
@@ -1427,8 +1493,73 @@ this.currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '
                 },
                 rentDraft:null,rentError:'',rentToken:null,rentMonth:null,
                 rentDays(hall){try{return FitPPStore.rentDates(this.rentMonth||this.currentMonth,hall)}catch{return []}},
-                openRent(){if(!this.canEdit()||!this.expenseReady)return;this.rentMonth=this.currentMonth;this.rentToken=store.token();this.rentDraft=JSON.parse(JSON.stringify(this.rentMonths[this.rentMonth]||{version:1,zarya:[],pole:[]}));this.rentError=''},
+                openRent(){
+                    if(!this.canEdit()||!this.expenseReady)return;
+                    this.rentMonth=this.currentMonth;
+                    this.rentToken=store.token();
+                    const existing = (this.rentMonths || {})[this.rentMonth];
+                    this.rentDraft = {
+                        version: 1,
+                        zarya: Array.isArray(existing?.zarya) ? [...existing.zarya] : [],
+                        pole: Array.isArray(existing?.pole) ? [...existing.pole] : []
+                    };
+                    this.rentError='';
+                },
                 rentDraftTotal(){return this.rentDraft?FitPPStore.rentTotal(this.rentDraft):0},
+                rentCalendarCells(hall) {
+                    const m = this.rentMonth || this.currentMonth;
+                    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) return [];
+                    const [y, mon] = m.split('-').map(Number);
+                    const firstDate = new Date(Date.UTC(y, mon - 1, 1));
+                    const startDayOfWeek = (firstDate.getUTCDay() + 6) % 7;
+                    const daysInMonth = new Date(Date.UTC(y, mon, 0)).getUTCDate();
+                    const allowed = new Set(this.rentDays(hall));
+                    const selected = new Set(this.rentDraft?.[hall] || []);
+                    const cells = [];
+                    for (let i = 0; i < startDayOfWeek; i++) {
+                        cells.push({ pad: true, key: 'pad-' + i });
+                    }
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const dStr = `${m}-${String(d).padStart(2, '0')}`;
+                        cells.push({
+                            pad: false,
+                            key: dStr,
+                            date: dStr,
+                            day: d,
+                            clickable: allowed.has(dStr),
+                            selected: selected.has(dStr)
+                        });
+                    }
+                    return cells;
+                },
+                toggleRentDay(hall, date) {
+                    if (!this.rentDraft) return;
+                    if (!Array.isArray(this.rentDraft[hall])) this.rentDraft[hall] = [];
+                    const list = this.rentDraft[hall];
+                    const idx = list.indexOf(date);
+                    if (idx >= 0) {
+                        list.splice(idx, 1);
+                    } else {
+                        list.push(date);
+                        list.sort();
+                    }
+                },
+                rentHallCount(hall) {
+                    return (this.rentDraft?.[hall] || []).length;
+                },
+                rentHallTotal(hall) {
+                    return this.rentHallCount(hall) * (hall === 'zarya' ? 800 : 600);
+                },
+                rentSavedSummary(hall) {
+                    const entry = (this.rentMonths || {})[this.currentMonth];
+                    const count = (entry?.[hall] || []).length;
+                    const rate = hall === 'zarya' ? 800 : 600;
+                    return count > 0 ? `${count} дн. · ${count * rate} ₽` : '0 дн. · 0 ₽';
+                },
+                rentSavedTotal() {
+                    const entry = (this.rentMonths || {})[this.currentMonth];
+                    return entry ? FitPPStore.rentTotal(entry) : 0;
+                },
                 async saveRent(){if(!this.rentDraft||!this.canEdit())return;if(this.rentMonth!==this.currentMonth){this.rentError='Месяц изменился. Откройте аренду заново.';return}const ok=await store.run({type:'rentMonth',month:this.rentMonth,zarya:[...this.rentDraft.zarya],pole:[...this.rentDraft.pole]},this.rentToken);if(ok){this.rentDraft=null;await this.loadExpenses()}else this.rentError=this.syncError},
                 getMonthRent(){return this.expenseReady?this.expenseLegacyAmount+FitPPExpenses.total(this.expenseState,this.currentMonth):0},
                 getMonthTax() { return FitPPStore.taxTotal(this.taxPayments,this.currentMonth); },
