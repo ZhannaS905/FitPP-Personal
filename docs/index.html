@@ -727,7 +727,7 @@
                     }
                     const latest = validSubs[validSubs.length - 1];
                     if (latest.left === 0) {
-                        return { kind: 'ended', label: 'Закончился (0 зан.)', sub: latest };
+                        return { kind: 'none', label: 'Нет абонемента', sub: latest };
                     }
                     if (latest.expires < this.today) {
                         return { kind: 'ended', label: 'Истёк ' + this.formatSubscriptionDate(latest.expires), sub: latest };

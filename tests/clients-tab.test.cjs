@@ -60,7 +60,7 @@ function createClientsTestApp(clients = []) {
       }
       const latest = validSubs[validSubs.length - 1];
       if (latest.left === 0) {
-        return { kind: 'ended', label: 'Закончился (0 зан.)', sub: latest };
+        return { kind: 'none', label: 'Нет абонемента', sub: latest };
       }
       if (latest.expires < this.today) {
         return { kind: 'ended', label: 'Истёк ' + this.formatSubscriptionDate(latest.expires), sub: latest };
@@ -131,7 +131,8 @@ test('clientSubStatus determines correct subscription states', () => {
     name: 'Дмитрий',
     subscriptions: [{ left: 0, expires: '2026-11-20', location: 'zarya' }]
   };
-  assert.equal(app.clientSubStatus(endedClient).kind, 'ended');
+  assert.equal(app.clientSubStatus(endedClient).kind, 'none');
+  assert.equal(app.clientSubStatus(endedClient).label, 'Нет абонемента');
 
   // 4. Ended because expired by date
   const expiredDateClient = {
