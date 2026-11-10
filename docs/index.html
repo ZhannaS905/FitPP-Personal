@@ -17,6 +17,7 @@
     <!-- Offline only: no remote SDK -->
     <!-- Alpine.js -->
     <script src="max-status.js?v=febf08d1ccc93214"></script>
+    <script src="tg-status.js"></script>
     <script defer src="vendor/alpine-3.14.9.js?v=3ed1eed252488921"></script>
 
 
@@ -244,6 +245,7 @@
                                         <span>Телефон не указан</span>
                                     </template>
                                     <span class="client-max-status" :class="{'is-linked': $store.maxStatus.ids.includes(client.id)}" :title="$store.maxStatus.ids.includes(client.id) ? 'Привязка MAX подтверждена' : $store.maxStatus.state === 'ready' ? 'Подтверждённой привязки MAX нет' : 'Статус MAX недоступен'" x-text="$store.maxStatus.ids.includes(client.id) ? 'MAX ✓' : 'MAX'">MAX</span>
+                                    <span class="client-tg-status" :class="{'is-linked': $store.tgStatus.ids.includes(client.id)}" :title="$store.tgStatus.ids.includes(client.id) ? 'Привязка Telegram подтверждена' : $store.tgStatus.state === 'ready' ? 'Подтверждённой привязки Telegram нет' : 'Статус Telegram недоступен'" x-text="$store.tgStatus.ids.includes(client.id) ? 'TG ✓' : 'TG'">TG</span>
                                 </p>
                             </div>
                             <button class="client-action" :disabled="!canEdit()" @click="editClient(client)">Изменить</button>
@@ -698,7 +700,7 @@
                     return {
                         all: list.length,
                         activeSub: list.filter(c => this.clientSubStatus(c).kind === 'active').length,
-                        expiring: list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind)).length,
+                        expiring: list.filter(c => this.clientSubStatus(c).kind === 'expiring').length,
                         noSub: list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind)).length,
                         debt: list.filter(c => this.clientDebt(c) > 0).length,
                     };
@@ -748,7 +750,7 @@
                         if (this.clientFilter === 'activeSub') {
                             list = list.filter(c => this.clientSubStatus(c).kind === 'active');
                         } else if (this.clientFilter === 'expiring') {
-                            list = list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind));
+                            list = list.filter(c => this.clientSubStatus(c).kind === 'expiring');
                         } else if (this.clientFilter === 'noSub') {
                             list = list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind));
                         } else if (this.clientFilter === 'debt') {

@@ -26,7 +26,7 @@ function createClientsTestApp(clients = []) {
       return {
         all: list.length,
         activeSub: list.filter(c => this.clientSubStatus(c).kind === 'active').length,
-        expiring: list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind)).length,
+        expiring: list.filter(c => this.clientSubStatus(c).kind === 'expiring').length,
         noSub: list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind)).length,
         debt: list.filter(c => this.clientDebt(c) > 0).length,
       };
@@ -83,7 +83,7 @@ function createClientsTestApp(clients = []) {
         if (this.clientFilter === 'activeSub') {
           list = list.filter(c => this.clientSubStatus(c).kind === 'active');
         } else if (this.clientFilter === 'expiring') {
-          list = list.filter(c => ['expiring', 'ended'].includes(this.clientSubStatus(c).kind));
+          list = list.filter(c => this.clientSubStatus(c).kind === 'expiring');
         } else if (this.clientFilter === 'noSub') {
           list = list.filter(c => ['none', 'ended'].includes(this.clientSubStatus(c).kind));
         } else if (this.clientFilter === 'debt') {
@@ -202,7 +202,7 @@ test('Filter chips filter active clients correctly and show accurate counts', ()
   const counts = app.clientFilterCounts();
   assert.equal(counts.all, 4);
   assert.equal(counts.activeSub, 1); // Анна
-  assert.equal(counts.expiring, 2);  // Борис (1 left) + Глеб (0 left)
+  assert.equal(counts.expiring, 1);  // Борис (1 left); Глеб (0 left) is ended
   assert.equal(counts.noSub, 2);     // Вера (none) + Глеб (ended)
 
   app.clientFilter = 'activeSub';
@@ -210,10 +210,21 @@ test('Filter chips filter active clients correctly and show accurate counts', ()
   assert.equal(app.visibleClients()[0].name, 'Анна');
 
   app.clientFilter = 'expiring';
-  assert.equal(app.visibleClients().length, 2);
-  assert.deepEqual(app.visibleClients().map(c => c.name), ['Борис', 'Глеб']);
+  assert.equal(app.visibleClients().length, 1);
+  assert.deepEqual(app.visibleClients().map(c => c.name), ['Борис']);
 
   app.clientFilter = 'noSub';
   assert.equal(app.visibleClients().length, 2);
   assert.deepEqual(app.visibleClients().map(c => c.name), ['Вера', 'Глеб']);
+});
+
+test('expiring filter excludes subscriptions with 0 sessions remaining even if expires in future', () => {
+  const app = createClientsTestApp([
+    { id: '1', name: 'Иван', subscriptions: [{ left: 0, expires: '2026-12-31', location: 'zarya' }] },
+    { id: '2', name: 'Ольга', subscriptions: [{ left: 1, expires: '2026-12-31', location: 'zarya' }] }
+  ]);
+  const counts = app.clientFilterCounts();
+  assert.equal(counts.expiring, 1); // Only Ольга with 1 left; Иван with 0 left is ended
+  app.clientFilter = 'expiring';
+  assert.deepEqual(app.visibleClients().map(c => c.name), ['Ольга']);
 });

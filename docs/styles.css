@@ -1053,6 +1053,8 @@ header.app-header > div, .detail-shell, .bottom-nav { padding-left: max(16px, en
 #schedule-host .journal-panel .actions > :is(.journal-move,.journal-cancel):disabled { opacity:.45; cursor:not-allowed; }
 
 .client-max-status.is-linked { color:#34d399; }
+.client-tg-status { display:inline-block; margin-left:5px; color:var(--muted); font-size:10px; font-weight:600; line-height:1.4; white-space:nowrap; vertical-align:middle; }
+.client-tg-status.is-linked { color:#38bdf8; }
 
 /* Modern Clients tab toolbar, responsive filter chips and status cards */
 .no-scrollbar::-webkit-scrollbar { display: none; }
